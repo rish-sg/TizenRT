@@ -1,0 +1,3 @@
+ifeq ($(CONFIG_EXAMPLES_PTHREAD_COND_TESTS),y)
+CONFIGURED_APPS += examples/pthread_cond_tests
+endif

@@ -1,0 +1,7 @@
+config EXAMPLES_PTHREAD_COND_TESTS
+    bool "Pthread Condition Variable Tests"
+    default n
+    help
+      Enable pthread condition variable tests that validate the sem_s structure
+      modifications and pthread_cond_* API changes. Available as 'pthread_cond_tests'
+      command in TASH shell.
