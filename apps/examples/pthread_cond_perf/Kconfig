@@ -1,0 +1,7 @@
+config EXAMPLES_PTHREAD_COND_PERF
+	bool "Pthread Condition Variable Performance Benchmark"
+	default n
+	help
+	  Enable pthread condition variable performance benchmark tests.
+	  Measures latency, throughput, and overhead of pthread_cond_* APIs.
+	  Available as 'pthread_cond_perf' command in TASH shell.
