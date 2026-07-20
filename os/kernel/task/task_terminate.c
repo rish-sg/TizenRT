@@ -195,12 +195,32 @@ int task_terminate(pid_t pid, bool nonblocking)
 	sched_removereadytorun(dtcb);
 	final_task_state = dtcb->task_state;
 	dtcb->task_state = orig_task_state;
-	task_recover(dtcb);
+	/* TEMPORARILY COMMENTED OUT THE FIX to reproduce the bug:
+	 * task_recover(dtcb);
+	 */
 	dtcb->task_state = final_task_state;
 
 	/* At this point, the TCB should no longer be accessible to the system */
 
 	leave_critical_section(flags);
+
+	/* DEBUG ONLY: Widen the race window between sched_removereadytorun()
+	 * (which removes the TCB from g_waitingformqnotempty) and mq_recover()
+	 * (which decrements nwaitnotempty). The global flag g_mq_race_window_open
+	 * is set after the TCB is removed from the waiting list but before
+	 * mq_recover() decrements the count. The test app's sender task polls
+	 * this flag and calls mq_send() when set.
+	 * REMOVE THIS BEFORE COMMITTING.
+	 */
+	extern volatile int g_mq_race_window_open;
+	if (strcmp(dtcb->name, "mq_receiver") == 0) {
+		g_mq_race_window_open = 1;
+		volatile int delay;
+		for (delay = 0; delay < 5000000; delay++) {
+			/* Busy wait - allows preemption by higher priority tasks */
+		}
+		g_mq_race_window_open = 0;
+	}
 
 #if defined(CONFIG_APP_BINARY_SEPARATION)
 	/* Disable mpu regions when the binary is unloaded if its own mpu registers are set in mpu h/w. */

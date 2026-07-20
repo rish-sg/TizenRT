@@ -1,0 +1,17 @@
+#
+# For a description of the syntax of this configuration file,
+# see kconfig-language at https://www.kernel.org/doc/Documentation/kbuild/kconfig-language.txt
+#
+
+config EXAMPLES_MQ_RACE_TEST
+	bool "Message queue race condition test"
+	default n
+	depends on !DISABLE_MQUEUE
+	---help---
+		Enable the message queue race condition test that triggers the
+		assert in mq_dosend() when a task waiting on mq_receive() is
+		deleted via task_delete() while another task sends a message.
+
+config USER_ENTRYPOINT
+	string
+	default "mq_race_test_main" if ENTRY_MQ_RACE_TEST

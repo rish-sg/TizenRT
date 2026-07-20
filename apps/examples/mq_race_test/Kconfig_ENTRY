@@ -1,0 +1,3 @@
+config ENTRY_MQ_RACE_TEST
+	bool "Message queue race condition test"
+	depends on EXAMPLES_MQ_RACE_TEST
