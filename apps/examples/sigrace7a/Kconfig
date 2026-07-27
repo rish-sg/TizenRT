@@ -1,0 +1,25 @@
+#
+# For a description of the syntax of this configuration file,
+# see kconfig-language at https://www.kernel.org/doc/Documentation/kbuild/kconfig-language.txt
+#
+
+config EXAMPLES_SIGRACE7A
+	bool "Signal race reproducer for ARMv7-A"
+	default n
+	depends on ARCH_ARMV7A_FAMILY
+	depends on !DISABLE_SIGNALS
+	---help---
+		Test app to verify signal delivery behavior on ARMv7-A architecture.
+		Reproduces the scenario that caused IACCVIOL crashes on ARMv8-M
+		(TizenRT 4.0) by signalling a task from within a nested interrupt
+		handler. ARMv7-A should always pass this test as
+		arm_schedulesigaction.c unconditionally sets CPSR to privileged
+		System mode (PSR_MODE_SYS) for signal delivery, with no
+		conditional logic that could miss a case.
+
+		Usage: Run 'sigrace7a' from TASH console.
+		Expected: PASS on ARMv7-A (TizenRT 5.0)
+
+config USER_ENTRYPOINT
+	string
+	default "sigrace7a_main" if ENTRY_SIGRACE7A

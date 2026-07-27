@@ -1,0 +1,3 @@
+config ENTRY_SIGRACE7A
+	bool "Signal race reproducer for ARMv7-A"
+	depends on EXAMPLES_SIGRACE7A
