@@ -20,7 +20,10 @@ THREADEXEC = TASH_EXECMD_SYNC
 ASRCS =
 CSRCS = test_basic.c test_cancel.c test_cancel_points.c test_stress.c
 CSRCS += test_resources.c test_edge_cases.c
+CSRCS += test_advanced.c new_apis_test.c test_advanced_apis.c
+
 MAINSRC = pthread_cleanup_main.c
+
 
 AOBJS = $(ASRCS:.S=$(OBJEXT))
 COBJS = $(CSRCS:.c=$(OBJEXT))

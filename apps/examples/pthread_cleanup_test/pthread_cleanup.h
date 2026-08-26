@@ -119,36 +119,73 @@ typedef enum {
 	TC11_DETACHED_THREAD_CANCELLATION,
 	
 	/* Cancellation point tests */
-	TC12_CANCEL_AT_COND_WAIT,
-	TC13_CANCEL_AT_PTHREAD_JOIN,
-	TC13B_CANCEL_AFTER_THREAD_EXIT,
-	TC14_CANCEL_AT_SEM_WAIT,
-	TC15_CANCEL_AT_SLEEP,
-	TC16_CANCEL_AT_MULTIPLE_POINTS,
+	TC12_CANCEL_AT_COND_WAIT = 12,
+	TC13_CANCEL_AT_PTHREAD_JOIN = 13,
+	TC13B_CANCEL_AFTER_THREAD_EXIT = 130,  /* Special value for B variant */
+	TC14_CANCEL_AT_SEM_WAIT = 14,
+	TC15_CANCEL_AT_SLEEP = 15,
+	TC16_CANCEL_AT_MULTIPLE_POINTS = 16,
 	
 	/* Stress tests */
-	TC17_HIGH_FREQUENCY_PUSH_POP,
-	TC18_MULTI_THREAD_CLEANUP,
-	TC19_DEEP_NESTING,
-	TC20_RAPID_CREATE_CANCEL,
-	TC21_LONG_RUNNING_CLEANUP,
+	TC17_HIGH_FREQUENCY_PUSH_POP = 17,
+	TC18_MULTI_THREAD_CLEANUP = 18,
+	TC19_DEEP_NESTING = 19,
+	TC20_RAPID_CREATE_CANCEL = 20,
+	TC21_LONG_RUNNING_CLEANUP = 21,
 	
 	/* Resource cleanup tests */
-	TC22_MEMORY_CLEANUP,
-	TC23_MUTEX_CLEANUP,
-	TC24_SEMAPHORE_CLEANUP,
-	TC25_FILE_DESCRIPTOR_CLEANUP,
-	TC26_MULTIPLE_RESOURCES,
-	TC27_CLEANUP_ORDERING,
+	TC22_MEMORY_CLEANUP = 22,
+	TC23_MUTEX_CLEANUP = 23,
+	TC24_SEMAPHORE_CLEANUP = 24,
+	TC25_FILE_DESCRIPTOR_CLEANUP = 25,
+	TC26_MULTIPLE_RESOURCES = 26,
+	TC27_CLEANUP_ORDERING = 27,
 	
 	/* Edge case tests */
-	TC28_NULL_ARGUMENT,
-	TC29_CLEANUP_CALLS_EXIT,
-	TC30_CLEANUP_DURING_CANCEL,
-	TC31_POP_WITHOUT_PUSH,
-	TC32_ASYNCHRONOUS_TYPE_CLEANUP,
-	TC33_MIXED_CANCELLATION_TYPES
+	TC28_NULL_ARGUMENT = 28,
+	TC29_CLEANUP_CALLS_EXIT = 29,
+	TC30_CLEANUP_DURING_CANCEL = 30,
+	TC31_POP_WITHOUT_PUSH = 31,
+	TC32_ASYNCHRONOUS_TYPE_CLEANUP = 32,
+	TC33_MIXED_CANCELLATION_TYPES = 33,
+
+	/* Advanced syscall & kernel tests */
+	TC34_SYSCALL_FROM_LOADABLE_MODULE = 34,
+	TC35_SYSCALL_ERROR_HANDLING = 35,
+	TC36_PRIORITY_INHERITANCE_CLEANUP = 36,
+	TC37_REALTIME_SCHED_CLEANUP = 37,
+	TC38_PRIORITY_CHANGE_DURING_CLEANUP = 38,
+	TC40_MULTI_HEAP_CLEANUP = 40,
+	TC41_SIGNAL_HANDLER_INTERACTION = 41,
+	TC42_TIMER_TRIGGERED_CANCELLATION = 42,
+	TC43_SIGPROCMASK_CLEANUP = 43,
+	TC44_BARRIER_CANCELLATION = 44,
+	TC45_RWLOCK_CLEANUP = 45,
+	TC46_ONCE_CONTROL_CANCELLATION = 46,
+	TC47_TSD_DESTRUCTOR_ORDERING = 47,
+	TC48_TSD_CLEANUP_INTERACTION = 48,
+	TC49_REENTRANT_CLEANUP = 49,
+	TC50_CANCELLATION_DURING_CLEANUP = 50,
+
+	/* New API verification tests */
+	TC51_CONCURRENT_PUSH = 51,
+
+	TC52_POP_ERROR_CASES = 52,
+	TC53_SELF_CANCEL = 53,
+	TC54_DOUBLE_CANCEL = 54,
+	TC55_STATE_INHERITANCE = 55,
+	TC56_TESTCANCEL_BASIC = 56,
+	TC57_TESTCANCEL_CPU_BOUND = 57,
+	TC58_MACRO_PAIRING = 58,
+	TC59_RAPID_STATE_TOGGLE = 59,
+	TC60_COMBINED_API_TEST = 60,
+
+	/* Must be last - used for array sizing */
+	TC_MAX = 61
 } test_id_t;
+
+
+
 
 /****************************************************************************
  * Public Function Prototypes
@@ -196,7 +233,40 @@ int test_pop_without_push(void);
 int test_asynchronous_type_cleanup(void);
 int test_mixed_cancellation_types(void);
 
+/* Advanced syscall & kernel tests */
+int test_syscall_from_loadable_module(void);
+int test_syscall_error_handling(void);
+int test_stack_overflow_protection(void);
+int test_barrier_cancellation(void);
+int test_priority_inheritance_cleanup(void);
+int test_realtime_sched_cleanup(void);
+int test_priority_change_during_cleanup(void);
+int test_multi_heap_cleanup(void);
+int test_signal_handler_interaction(void);
+int test_timer_triggered_cancellation(void);
+int test_sigprocmask_cleanup(void);
+int test_rwlock_cleanup(void);
+int test_once_control_cancellation(void);
+int test_tsd_destructor_ordering(void);
+int test_tsd_cleanup_interaction(void);
+int test_reentrant_cleanup(void);
+int test_cancellation_during_cleanup(void);
+
+
+/* New API verification tests */
+int test_concurrent_push(void);
+int test_pop_error_cases(void);
+int test_self_cancel(void);
+int test_double_cancel(void);
+int test_cancel_state_inheritance(void);
+int test_testcancel_basic(void);
+int test_testcancel_cpu_bound(void);
+int test_macro_pairing(void);
+int test_rapid_state_toggle(void);
+int test_combined_api_test(void);
+
 /* Test runner */
+
 
 void run_test(test_id_t id);
 void run_all_tests(void);

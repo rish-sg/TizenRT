@@ -111,8 +111,42 @@ static const char *g_test_names[] = {
 	[TC30_CLEANUP_DURING_CANCEL] = "TC30: Cleanup during thread cancellation",
 	[TC31_POP_WITHOUT_PUSH] = "TC31: Pop without matching push (error case)",
 	[TC32_ASYNCHRONOUS_TYPE_CLEANUP] = "TC32: Cleanup with CANCEL_ASYNCHRONOUS type",
-	[TC33_MIXED_CANCELLATION_TYPES] = "TC33: Mixed cancellation types in same thread"
+	[TC33_MIXED_CANCELLATION_TYPES] = "TC33: Mixed cancellation types in same thread",
+
+	/* Advanced syscall & kernel tests */
+	[TC34_SYSCALL_FROM_LOADABLE_MODULE] = "TC34: Syscall-based cleanup push/pop (loadable module path)",
+	[TC35_SYSCALL_ERROR_HANDLING] = "TC35: Syscall error handling for cleanup push/pop",
+	[TC36_PRIORITY_INHERITANCE_CLEANUP] = "TC36: Cleanup with priority inheritance mutex",
+	[TC37_REALTIME_SCHED_CLEANUP] = "TC37: Cleanup handlers with SCHED_FIFO",
+	[TC38_PRIORITY_CHANGE_DURING_CLEANUP] = "TC38: Thread priority change while cleanup handlers execute",
+	[TC40_MULTI_HEAP_CLEANUP] = "TC40: Cleanup with memory from different heap regions",
+	[TC41_SIGNAL_HANDLER_INTERACTION] = "TC41: Cleanup when signal arrives during cancellation",
+	[TC42_TIMER_TRIGGERED_CANCELLATION] = "TC42: POSIX timer triggers pthread_cancel",
+	[TC43_SIGPROCMASK_CLEANUP] = "TC43: Signal mask preservation during cleanup",
+	[TC44_BARRIER_CANCELLATION] = "TC44: Cancellation during pthread_barrier_wait",
+	[TC45_RWLOCK_CLEANUP] = "TC45: Cleanup when holding read-write lock",
+	[TC46_ONCE_CONTROL_CANCELLATION] = "TC46: pthread_once interaction with cancellation",
+	[TC47_TSD_DESTRUCTOR_ORDERING] = "TC47: TSD destructor and cleanup handler ordering",
+	[TC48_TSD_CLEANUP_INTERACTION] = "TC48: Cleanup handler accessing thread-specific data",
+	[TC49_REENTRANT_CLEANUP] = "TC49: Reentrant cleanup (DISABLED - undefined behavior)",
+
+	[TC50_CANCELLATION_DURING_CLEANUP] = "TC50: Cancellation request during cleanup handler",
+
+
+
+	/* New API verification tests */
+	[TC51_CONCURRENT_PUSH] = "TC51: Concurrent pthread_cleanup_push from multiple threads",
+	[TC52_POP_ERROR_CASES] = "TC52: pthread_cleanup_pop error cases (extra pops)",
+	[TC53_SELF_CANCEL] = "TC53: Self-cancellation via pthread_cancel(pthread_self())",
+	[TC54_DOUBLE_CANCEL] = "TC54: Double cancel (multiple cancel requests)",
+	[TC55_STATE_INHERITANCE] = "TC55: Cancellation state inheritance",
+	[TC56_TESTCANCEL_BASIC] = "TC56: pthread_testcancel() basic functionality",
+	[TC57_TESTCANCEL_CPU_BOUND] = "TC57: pthread_testcancel() in CPU-bound loop",
+	[TC58_MACRO_PAIRING] = "TC58: pthread_cleanup_push/pop macro pairing in blocks",
+	[TC59_RAPID_STATE_TOGGLE] = "TC59: Rapid cancel state toggle (ENABLE/DISABLE)",
+	[TC60_COMBINED_API_TEST] = "TC60: Combined API integration test (all 5 APIs)"
 };
+
 
 static const int g_num_tests = sizeof(g_test_names) / sizeof(g_test_names[0]);
 
@@ -136,8 +170,12 @@ void show_test_menu(void)
 	printf("  3. Cancellation Point Tests (TC12-TC16)\n");
 	printf("  4. Stress Tests (TC17-TC21)\n");
 	printf("  5. Resource Cleanup Tests (TC22-TC27)\n");
-	printf("  6. Edge Case Tests (TC28-TC33)\n\n");
-	
+	printf("  6. Edge Case Tests (TC28-TC33)\n");
+	printf("  7. Advanced Syscall & Kernel Tests (TC34-TC50)\n");
+
+
+	printf("  8. New API Tests (TC51-TC60)\n\n");
+
 	printf("Commands:\n");
 	printf("  <test_id>  - Run specific test (e.g., 1 for TC01)\n");
 	printf("  a          - Run all tests\n");
@@ -147,9 +185,12 @@ void show_test_menu(void)
 	printf("  s          - Run stress tests (17-21)\n");
 	printf("  r          - Run resource cleanup tests (22-27)\n");
 	printf("  e          - Run edge case tests (28-33)\n");
+	printf("  d          - Run advanced syscall tests (34-44)\n");
+	printf("  n          - Run new API tests (51-60)\n");
 	printf("  i          - Infinite stability test (runs until Ctrl+C)\n");
 	printf("  h          - Show this help menu\n");
 	printf("  q          - Quit\n\n");
+
 }
 
 /****************************************************************************
@@ -283,14 +324,99 @@ void run_test(test_id_t id)
 	case TC33_MIXED_CANCELLATION_TYPES:
 		result = test_mixed_cancellation_types();
 		break;
-	
+
+	/* Advanced syscall & kernel tests */
+	case TC34_SYSCALL_FROM_LOADABLE_MODULE:
+		result = test_syscall_from_loadable_module();
+		break;
+	case TC35_SYSCALL_ERROR_HANDLING:
+		result = test_syscall_error_handling();
+		break;
+	case TC36_PRIORITY_INHERITANCE_CLEANUP:
+		result = test_priority_inheritance_cleanup();
+		break;
+	case TC37_REALTIME_SCHED_CLEANUP:
+		result = test_realtime_sched_cleanup();
+		break;
+	case TC38_PRIORITY_CHANGE_DURING_CLEANUP:
+		result = test_priority_change_during_cleanup();
+		break;
+	case TC40_MULTI_HEAP_CLEANUP:
+		result = test_multi_heap_cleanup();
+		break;
+	case TC41_SIGNAL_HANDLER_INTERACTION:
+		result = test_signal_handler_interaction();
+		break;
+	case TC42_TIMER_TRIGGERED_CANCELLATION:
+		result = test_timer_triggered_cancellation();
+		break;
+	case TC43_SIGPROCMASK_CLEANUP:
+		result = test_sigprocmask_cleanup();
+		break;
+	case TC44_BARRIER_CANCELLATION:
+		result = test_barrier_cancellation();
+		break;
+	case TC45_RWLOCK_CLEANUP:
+		result = test_rwlock_cleanup();
+		break;
+	case TC46_ONCE_CONTROL_CANCELLATION:
+		result = test_once_control_cancellation();
+		break;
+	case TC47_TSD_DESTRUCTOR_ORDERING:
+		result = test_tsd_destructor_ordering();
+		break;
+	case TC48_TSD_CLEANUP_INTERACTION:
+		result = test_tsd_cleanup_interaction();
+		break;
+	case TC49_REENTRANT_CLEANUP:
+		result = test_reentrant_cleanup();
+		break;
+	case TC50_CANCELLATION_DURING_CLEANUP:
+		result = test_cancellation_during_cleanup();
+		break;
+
+
+
+	/* New API verification tests */
+	case TC51_CONCURRENT_PUSH:
+		result = test_concurrent_push();
+		break;
+	case TC52_POP_ERROR_CASES:
+		result = test_pop_error_cases();
+		break;
+	case TC53_SELF_CANCEL:
+		result = test_self_cancel();
+		break;
+	case TC54_DOUBLE_CANCEL:
+		result = test_double_cancel();
+		break;
+	case TC55_STATE_INHERITANCE:
+		result = test_cancel_state_inheritance();
+		break;
+	case TC56_TESTCANCEL_BASIC:
+		result = test_testcancel_basic();
+		break;
+	case TC57_TESTCANCEL_CPU_BOUND:
+		result = test_testcancel_cpu_bound();
+		break;
+	case TC58_MACRO_PAIRING:
+		result = test_macro_pairing();
+		break;
+	case TC59_RAPID_STATE_TOGGLE:
+		result = test_rapid_state_toggle();
+		break;
+	case TC60_COMBINED_API_TEST:
+		result = test_combined_api_test();
+		break;
+
 	default:
 		printf("[ERROR] Test not implemented: %s\n", g_test_names[id]);
 		return;
 	}
-	
+
 	TEST_DONE(g_test_names[id], result);
 }
+
 
 /****************************************************************************
  * Name: run_test_category
@@ -325,10 +451,43 @@ void run_test_category(int category)
 		start = TC28_NULL_ARGUMENT;
 		end = TC33_MIXED_CANCELLATION_TYPES;
 		break;
+	case 7: /* Advanced syscall & kernel tests - run specific test IDs */
+		run_test(TC34_SYSCALL_FROM_LOADABLE_MODULE);
+		run_test(TC35_SYSCALL_ERROR_HANDLING);
+		run_test(TC36_PRIORITY_INHERITANCE_CLEANUP);
+		run_test(TC37_REALTIME_SCHED_CLEANUP);
+		run_test(TC38_PRIORITY_CHANGE_DURING_CLEANUP);
+		run_test(TC40_MULTI_HEAP_CLEANUP);
+		run_test(TC41_SIGNAL_HANDLER_INTERACTION);
+		run_test(TC42_TIMER_TRIGGERED_CANCELLATION);
+		run_test(TC43_SIGPROCMASK_CLEANUP);
+		run_test(TC44_BARRIER_CANCELLATION);
+		run_test(TC45_RWLOCK_CLEANUP);
+		run_test(TC46_ONCE_CONTROL_CANCELLATION);
+		run_test(TC47_TSD_DESTRUCTOR_ORDERING);
+		run_test(TC48_TSD_CLEANUP_INTERACTION);
+		run_test(TC49_REENTRANT_CLEANUP);
+		run_test(TC50_CANCELLATION_DURING_CLEANUP);
+		return;
+
+
+	case 8: /* New API tests - run specific test IDs */
+		run_test(TC51_CONCURRENT_PUSH);
+		run_test(TC52_POP_ERROR_CASES);
+		run_test(TC53_SELF_CANCEL);
+		run_test(TC54_DOUBLE_CANCEL);
+		run_test(TC55_STATE_INHERITANCE);
+		run_test(TC56_TESTCANCEL_BASIC);
+		run_test(TC57_TESTCANCEL_CPU_BOUND);
+		run_test(TC58_MACRO_PAIRING);
+		run_test(TC59_RAPID_STATE_TOGGLE);
+		run_test(TC60_COMBINED_API_TEST);
+		return;
 	default:
 		printf("[ERROR] Invalid category: %d\n", category);
 		return;
 	}
+
 	
 	for (int i = start; i <= end; i++) {
 		run_test((test_id_t)i);
@@ -344,10 +503,13 @@ void run_all_tests(void)
 	printf("\n*** Running ALL tests ***\n");
 	
 	for (int i = 1; i < g_num_tests; i++) {
-		run_test((test_id_t)i);
+		if (g_test_names[i] != NULL) {
+			run_test((test_id_t)i);
+		}
 	}
 	
 	printf("\n*** All tests completed ***\n");
+
 }
 
 /****************************************************************************
@@ -739,9 +901,25 @@ int pthread_cleanup_main(int argc, char *argv[])
 		case 'R':
 			run_test_category(5);
 			break;
-		
+
+		case 'e':
+		case 'E':
+			run_test_category(6);
+			break;
+
+		case 'd':
+		case 'D':
+			run_test_category(7);
+			break;
+
+		case 'n':
+		case 'N':
+			run_test_category(8);
+			break;
+
 		case 'i':
 		case 'I':
+
 			/* Infinite stability test */
 			run_infinite_stability_test();
 			break;
