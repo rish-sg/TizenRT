@@ -330,9 +330,10 @@ int pthread_cond_timedwait(FAR pthread_cond_t *cond, FAR pthread_mutex_t *mutex,
 						status = sem_wait((sem_t *)&cond->sem);
 
 						/* Only pop the cleanup handler if the thread was not
-						 * canceled. sem_wait() treats ECANCELED as "semaphore
-						 * acquired" (returns OK), so status may be OK even when
-						 * canceled. We must check the cancel-pending flag.
+						 * canceled. sem_wait() now returns ERROR with
+						 * errno=ECANCELED on cancellation, so status will be
+						 * ERROR (not OK) when canceled. We still check the
+						 * cancel-pending flag for correctness.
 						 */
 #if defined(CONFIG_CANCELLATION_POINTS) && defined(CONFIG_PTHREAD_CLEANUP)
 						if ((rtcb->flags & TCB_FLAG_CANCEL_PENDING) == 0) {
@@ -352,6 +353,11 @@ int pthread_cond_timedwait(FAR pthread_cond_t *cond, FAR pthread_mutex_t *mutex,
 							if (get_errno() == EINTR) {
 								sdbg("Timedout!\n");
 								ret = ETIMEDOUT;
+							} else if (get_errno() == ECANCELED) {
+								/* Thread was cancelled while waiting on the
+								 * condition variable. Propagate ECANCELED.
+								 */
+								ret = ECANCELED;
 							} else {
 								ret = EINVAL;
 							}

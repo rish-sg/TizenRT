@@ -141,7 +141,10 @@ int pthread_sem_take(sem_t *sem)
 			int errcode = get_errno();
 
 			/* Handle the special case where the semaphore wait was
-			 * awakened by the receipt of a signal.
+			 * awakened by the receipt of a signal. In that case, we
+			 * retry the wait. For all other errors, including
+			 * ECANCELED (thread cancellation), propagate the error
+			 * to the caller.
 			 */
 
 			if (errcode != EINTR) {

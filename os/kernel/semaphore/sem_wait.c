@@ -245,8 +245,8 @@ int sem_wait(FAR sem_t *sem)
 			 * race conditions.
 			 */
 
-			if (get_errno() != EINTR && get_errno() != ETIMEDOUT) {
-				/* Not awakened by a signal or a timeout... We hold the semaphore */
+			if (get_errno() != EINTR && get_errno() != ETIMEDOUT && get_errno() != ECANCELED) {
+				/* Not awakened by a signal, a timeout, or cancellation... We hold the semaphore */
 				ret = OK;
 			}
 #ifdef CONFIG_PRIORITY_INHERITANCE

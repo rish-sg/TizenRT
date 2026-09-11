@@ -169,9 +169,9 @@ int pthread_cond_wait(FAR pthread_cond_t *cond, FAR pthread_mutex_t *mutex)
 		status = pthread_sem_take((FAR sem_t *)&cond->sem);
 
 		/* Only pop the cleanup handler if the thread was not canceled.
-		 * sem_wait() treats ECANCELED as "semaphore acquired" (it only
-		 * checks for EINTR/ETIMEDOUT), so status may be OK even when
-		 * canceled. We must check the cancel-pending flag instead.
+		 * sem_wait() now returns ERROR with errno=ECANCELED on cancellation,
+		 * so status will be ECANCELED (not OK) when canceled. We still
+		 * check the cancel-pending flag for correctness.
 		 */
 #if defined(CONFIG_CANCELLATION_POINTS) && defined(CONFIG_PTHREAD_CLEANUP)
 		FAR struct tcb_s *rtcb = this_task();
@@ -185,10 +185,12 @@ int pthread_cond_wait(FAR pthread_cond_t *cond, FAR pthread_mutex_t *mutex)
 		 * already handled inside pthread_sem_take()
 		 * i.e EINVAL and EINTR
 		 * ETIMEDOUT is not expected in pthread_cond_wait()
+		 * ECANCELED is expected when the thread is cancelled while
+		 * waiting on the condition variable.
 		 * If pthread_sem_take() fails for other than these,
 		 * we trigger an assert.
 		 */
-		DEBUGASSERT_INFO(status == OK,
+		DEBUGASSERT_INFO(status == OK || status == ECANCELED || status == EINTR,
 		    "pthread_sem_take failed! errno=%d, sem=%p, waiters=%d, semcount=%d",
 		    get_errno(), &cond->sem, cond->waiters, cond->sem.semcount);
 
