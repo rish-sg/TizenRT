@@ -44,10 +44,10 @@
 
 #ifdef CONFIG_SMP
 struct backtrace_arg_s {
-  FAR void **buffer;  /* Buffer to store backtrace */
-  int size;           /* Size of buffer */
-  int skip;           /* Number of frames to skip */
-  int stacksize;      /* Number of frames captured */
+	FAR void **buffer;		/* Buffer to store backtrace */
+	int size;			/* Size of buffer */
+	int skip;			/* Number of frames to skip */
+	int stacksize;			/* Number of frames captured */
 };
 #endif
 
@@ -67,18 +67,18 @@ struct backtrace_arg_s {
 
 static int sched_backtrace_handler(FAR void *cookie)
 {
-  FAR struct backtrace_arg_s *arg = cookie;
-  FAR struct tcb_s *tcb;
+	FAR struct backtrace_arg_s *arg = cookie;
+	FAR struct tcb_s *tcb;
 
-  /* Get the running task */
+	/* Get the running task */
 
-  tcb = this_task();
+	tcb = this_task();
 
-  /* Get the backtrace - asserted_location=0 for normal backtrace */
+	/* Get the backtrace - asserted_location=0 for normal backtrace */
 
-  arg->stacksize = up_backtrace(tcb, arg->buffer, arg->size, arg->skip, 0);
+	arg->stacksize = up_backtrace(tcb, arg->buffer, arg->size, arg->skip, 0);
 
-  return OK;
+	return OK;
 }
 #endif
 
@@ -107,59 +107,53 @@ static int sched_backtrace_handler(FAR void *cookie)
 
 int sched_backtrace(pid_t tid, FAR void **buffer, int size, int skip)
 {
-  FAR struct tcb_s *tcb;
-  int ret = 0;
+	FAR struct tcb_s *tcb;
+	int ret = 0;
 
-  if (size <= 0 || !buffer)
-    {
-      return -EINVAL;
-    }
+	if (size <= 0 || !buffer) {
+		return -EINVAL;
+	}
 
-  /* Get the TCB */
+	/* Get the TCB */
 
-  tcb = sched_gettcb(tid);
-  if (!tcb)
-    {
-      return -ESRCH;
-    }
-
+	tcb = sched_gettcb(tid);
+	if (!tcb) {
+		return -ESRCH;
+	}
 #ifdef CONFIG_SMP
-  /* If the task is running on another CPU, we need to use IPI */
+	/* If the task is running on another CPU, we need to use IPI */
 
-  if (tcb->cpu != this_cpu() && tcb->task_state == TSTATE_TASK_RUNNING)
-    {
-      /* IPI-based backtrace not supported in TizenRT */
-      lldbg("Backtrace: Task %d running on CPU %d, IPI not supported\n", tid, tcb->cpu);
-      return 0;
-    }
+	if (tcb->cpu != this_cpu() && tcb->task_state == TSTATE_TASK_RUNNING) {
+		/* IPI-based backtrace not supported in TizenRT */
+		lldbg("Backtrace: Task %d running on CPU %d, IPI not supported\n", tid, tcb->cpu);
+		return 0;
+	}
 #endif
-/*TODO*/
+	/*TODO*/
 #if 0
-  /* If the task is running on another CPU, we need to use IPI */
+	/* If the task is running on another CPU, we need to use IPI */
+	if (tcb->cpu != this_cpu() && tcb->task_state == TSTATE_TASK_RUNNING) {
+		struct backtrace_arg_s arg;
 
-  if (tcb->cpu != this_cpu() && tcb->task_state == TSTATE_TASK_RUNNING)
-    {
-      struct backtrace_arg_s arg;
+		arg.buffer = buffer;
+		arg.size = size;
+		arg.skip = skip;
+		arg.stacksize = 0;
 
-      arg.buffer  = buffer;
-      arg.size    = size;
-      arg.skip    = skip;
-      arg.stacksize = 0;
+		/* Send IPI to the target CPU */
 
-      /* Send IPI to the target CPU */
+		up_send_sipi(tcb->cpu, sched_backtrace_handler, &arg);
 
-      up_send_sipi(tcb->cpu, sched_backtrace_handler, &arg);
-
-      return arg.stacksize;
-    }
+		return arg.stacksize;
+	}
 #endif
 
-  /* Task is not running or on the same CPU, we can safely get the backtrace */
-  /* asserted_location=0 for normal backtrace (not from ASSERT) */
+	/* Task is not running or on the same CPU, we can safely get the backtrace */
+	/* asserted_location=0 for normal backtrace (not from ASSERT) */
 
-  ret = up_backtrace(tcb, buffer, size, skip, 0);
+	ret = up_backtrace(tcb, buffer, size, skip, 0);
 
-  return ret;
+	return ret;
 }
 
 #ifdef CONFIG_ARCH_STACKDUMP
@@ -173,43 +167,39 @@ int sched_backtrace(pid_t tid, FAR void **buffer, int size, int skip)
 
 void sched_dumpstack(pid_t tid)
 {
-  FAR struct tcb_s *tcb;
+	FAR struct tcb_s *tcb;
 #ifdef CONFIG_ARCH_STACKDUMP_DEPTH
-  #ifdef CONFIG_ARCH_STACKDUMP_DEPTH
-  void *buffer[CONFIG_ARCH_STACKDUMP_DEPTH];
-  int size;
-  int i;
+#ifdef CONFIG_ARCH_STACKDUMP_DEPTH
+	void *buffer[CONFIG_ARCH_STACKDUMP_DEPTH];
+	int size;
+	int i;
 
-  tcb = sched_gettcb(tid);
-  if (!tcb)
-    {
-      _lldbg("Task %d not found\n", tid);
-      return;
-    }
+	tcb = sched_gettcb(tid);
+	if (!tcb) {
+		_lldbg("Task %d not found\n", tid);
+		return;
+	}
 
-  size = sched_backtrace(tid, buffer, CONFIG_ARCH_STACKDUMP_DEPTH, 0);
-  if (size < 0)
-    {
-      _lldbg("Failed to get backtrace for task %d: %d\n", tid, size);
-      return;
-    }
+	size = sched_backtrace(tid, buffer, CONFIG_ARCH_STACKDUMP_DEPTH, 0);
+	if (size < 0) {
+		_lldbg("Failed to get backtrace for task %d: %d\n", tid, size);
+		return;
+	}
 
-  _lldbg("Backtrace for task %d (%s):\n", tid, tcb->name);
-  #endif
-  for (i = 0; i < size; i++)
-    {
-      _lldbg("  [%d]: %p\n", i, buffer[i]);
-    }
+	_lldbg("Backtrace for task %d (%s):\n", tid, tcb->name);
+#endif
+	for (i = 0; i < size; i++) {
+		_lldbg("  [%d]: %p\n", i, buffer[i]);
+	}
 #else
-  /* Fallback when CONFIG_ARCH_STACKDUMP_DEPTH is not defined */
-  tcb = sched_gettcb(tid);
-  if (!tcb)
-    {
-      _lldbg("Task %d not found\n", tid);
-      return;
-    }
+	/* Fallback when CONFIG_ARCH_STACKDUMP_DEPTH is not defined */
+	tcb = sched_gettcb(tid);
+	if (!tcb) {
+		_lldbg("Task %d not found\n", tid);
+		return;
+	}
 
-  _lldbg("Backtrace for task %d (%s) not available (CONFIG_ARCH_STACKDUMP_DEPTH undefined)\n", tid, tcb->name);
+	_lldbg("Backtrace for task %d (%s) not available (CONFIG_ARCH_STACKDUMP_DEPTH undefined)\n", tid, tcb->name);
 #endif
 }
 #endif

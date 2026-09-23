@@ -37,41 +37,41 @@
 /* ARM register indices */
 enum regs {
 #ifdef CONFIG_ARM_THUMB
-  FP = 7,
+	FP = 7,
 #else
-  FP = 11,
+	FP = 11,
 #endif
-  SP = 13,
-  LR = 14,
-  PC = 15
+	SP = 13,
+	LR = 14,
+	PC = 15
 };
 
 /* Unwinding frame state */
 struct unwind_frame_s {
-  unsigned long fp;
-  unsigned long sp;
-  unsigned long lr;
-  unsigned long pc;
-  unsigned long *lr_addr;
-  unsigned long stack_base;
-  unsigned long stack_top;
+	unsigned long fp;
+	unsigned long sp;
+	unsigned long lr;
+	unsigned long pc;
+	unsigned long *lr_addr;
+	unsigned long stack_base;
+	unsigned long stack_top;
 };
 
 /* Unwinding control state */
 struct unwind_ctrl_s {
-  unsigned long vrs[16];       /* Virtual register set */
-  const unsigned long *insn;   /* Pointer to current unwind instruction */
-  unsigned long stack_top;     /* Stack upper bound for validation */
-  unsigned long *lr_addr;      /* Address where LR was stored on stack */
-  int entries;                 /* Number of remaining unwind instruction words */
-  int byte;                    /* Current byte index within instruction word */
-  int check_each_pop;          /* Validate stack bounds on each pop */
+	unsigned long vrs[16];		/* Virtual register set */
+	const unsigned long *insn;	/* Pointer to current unwind instruction */
+	unsigned long stack_top;	/* Stack upper bound for validation */
+	unsigned long *lr_addr;		/* Address where LR was stored on stack */
+	int entries;				/* Number of remaining unwind instruction words */
+	int byte;					/* Current byte index within instruction word */
+	int check_each_pop;			/* Validate stack bounds on each pop */
 };
 
 /* ARM EHABI unwind table entry structure */
 struct __EIT_entry {
-  unsigned long fnoffset;      /* prel31 offset to function start */
-  unsigned long content;       /* Unwind instructions or offset */
+	unsigned long fnoffset;		/* prel31 offset to function start */
+	unsigned long content;		/* Unwind instructions or offset */
 };
 
 /****************************************************************************
@@ -155,8 +155,7 @@ const struct __EIT_entry *unwind_find_entry(unsigned long addr);
  ****************************************************************************/
 
 #ifdef CONFIG_APP_BINARY_SEPARATION
-void up_register_exidx(unsigned long exidx_start, unsigned long exidx_size,
-			unsigned long text_start, unsigned long text_end);
+void up_register_exidx(unsigned long exidx_start, unsigned long exidx_size, unsigned long text_start, unsigned long text_end);
 #endif
 
 /****************************************************************************
@@ -194,14 +193,13 @@ int unwind_frame(struct unwind_frame_s *frame);
  *
  ****************************************************************************/
 
-int backtrace_unwind(struct unwind_frame_s *frame, void **buffer,
-		     int size, int *skip, unsigned char *methods);
+int backtrace_unwind(struct unwind_frame_s *frame, void **buffer, int size, int *skip, unsigned char *methods);
 
 #undef EXTERN
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* CONFIG_SCHED_BACKTRACE */
+#endif							/* CONFIG_SCHED_BACKTRACE */
 
-#endif /* __ARCH_ARM_SRC_COMMON_ARM_BACKTRACE_UNWIND_H */
+#endif							/* __ARCH_ARM_SRC_COMMON_ARM_BACKTRACE_UNWIND_H */

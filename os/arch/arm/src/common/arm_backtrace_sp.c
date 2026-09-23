@@ -40,10 +40,10 @@
 
 #define INSTR_IS(i, o)      (((i) & (IMASK_##o)) == (IOP_##o))
 
-#define IMASK_T_BLX         0xff80      /* blx */
+#define IMASK_T_BLX         0xff80	/* blx */
 #define IOP_T_BLX           0x4780
 
-#define IMASK_T_BL          0xf800      /* blx */
+#define IMASK_T_BL          0xf800	/* blx */
 #define IOP_T_BL            0xf000
 
 /****************************************************************************
@@ -74,37 +74,30 @@ static void **g_backtrace_code_regions;
 
 static bool in_code_region(unsigned long pc)
 {
-  int i = 0;
+	int i = 0;
 
-  if (g_backtrace_code_regions)
-    {
-      while (g_backtrace_code_regions[i] &&
-	     (g_backtrace_code_regions[i] !=
-	      g_backtrace_code_regions[i + 1]))
-	{
-	  if (g_backtrace_code_regions[i] <= (void *)pc &&
-	      g_backtrace_code_regions[i + 1] > (void *)pc)
-	    {
-	      return true;
-	    }
+	if (g_backtrace_code_regions) {
+		while (g_backtrace_code_regions[i] && (g_backtrace_code_regions[i] != g_backtrace_code_regions[i + 1])) {
+			if (g_backtrace_code_regions[i] <= (void *)pc && g_backtrace_code_regions[i + 1] > (void *)pc) {
+				return true;
+			}
 
-	  i += 2;
+			i += 2;
+		}
 	}
-    }
 
-  /* When g_backtrace_code_regions is null, try to use all the text section */
+	/* When g_backtrace_code_regions is null, try to use all the text section */
 
 #ifdef CONFIG_BUILD_FLAT
-  extern unsigned int _stext_flash;
-  extern unsigned int _etext_flash;
+	extern unsigned int _stext_flash;
+	extern unsigned int _etext_flash;
 
-  if (pc >= (unsigned long)&_stext_flash && pc < (unsigned long)&_etext_flash)
-    {
-      return true;
-    }
+	if (pc >= (unsigned long)&_stext_flash && pc < (unsigned long)&_etext_flash) {
+		return true;
+	}
 #endif
 
-  return false;
+	return false;
 }
 
 /****************************************************************************
@@ -118,63 +111,53 @@ static bool in_code_region(unsigned long pc)
 #ifdef CONFIG_MM_KASAN
 __attribute__((no_sanitize_address))
 #endif
-static int backtrace_branch(unsigned long top, unsigned long sp,
-			    void **buffer, int size, int *skip)
+static int backtrace_branch(unsigned long top, unsigned long sp, void **buffer, int size, int *skip)
 {
-  unsigned long addr;
-  uint16_t ins16;
-  int i;
+	unsigned long addr;
+	uint16_t ins16;
+	int i;
 
-  for (i = 0; i < size && sp < top; sp += sizeof(unsigned long))
-    {
-      addr = *(unsigned long *)sp;
-      if (!in_code_region(addr))
-	{
-	  continue;
-	}
-
-      addr = (addr & ~1) - 2;
-      if (!in_code_region(addr))
-	{
-	  continue;
-	}
-
-      ins16 = *(uint16_t *)addr;
-      if (INSTR_IS(ins16, T_BLX))
-	{
-	  if ((*skip)-- <= 0)
-	    {
-	      buffer[i++] = (void *)addr;
-	    }
-	}
-
-      /* BL Instruction
-       * OFFSET: 31 30 29 28 27 26 25 24 23 22 21 20 19 18 17 16
-       * VALUE :  1  1  1  1  0  -  -  -  -  -  -  -  -  -  -  -
-       * OFFSET: 15 14 13 12 11 10 09 08 07 06 05 04 03 02 01 00
-       * VALUE :  1  1  -  1  -  -  -  -  -  -  -  -  -  -  -  -
-       */
-
-      else if ((ins16 & 0xd000) == 0xd000)
-	{
-	  addr -= 2;
-	  if (!in_code_region(addr))
-	    {
-	      continue;
-	    }
-
-	  ins16 = *(uint16_t *)addr;
-	  if (INSTR_IS(ins16, T_BL))
-	    {
-	      if ((*skip)-- <= 0)
-		{
-		  buffer[i++] = (void *)addr;
+	for (i = 0; i < size && sp < top; sp += sizeof(unsigned long)) {
+		addr = *(unsigned long *)sp;
+		if (!in_code_region(addr)) {
+			continue;
 		}
-	    }
-	}
-    }
 
-  return i;
+		addr = (addr & ~1) - 2;
+		if (!in_code_region(addr)) {
+			continue;
+		}
+
+		ins16 = *(uint16_t *) addr;
+		if (INSTR_IS(ins16, T_BLX)) {
+			if ((*skip)-- <= 0) {
+				buffer[i++] = (void *)addr;
+			}
+		}
+
+		/* BL Instruction
+		 * OFFSET: 31 30 29 28 27 26 25 24 23 22 21 20 19 18 17 16
+		 * VALUE :  1  1  1  1  0  -  -  -  -  -  -  -  -  -  -  -
+		 * OFFSET: 15 14 13 12 11 10 09 08 07 06 05 04 03 02 01 00
+		 * VALUE :  1  1  -  1  -  -  -  -  -  -  -  -  -  -  -  -
+		 */
+
+		else if ((ins16 & 0xd000) == 0xd000) {
+			addr -= 2;
+			if (!in_code_region(addr)) {
+				continue;
+			}
+
+			ins16 = *(uint16_t *) addr;
+			if (INSTR_IS(ins16, T_BL)) {
+				if ((*skip)-- <= 0) {
+					buffer[i++] = (void *)addr;
+				}
+			}
+		}
+	}
+
+	return i;
 }
 
 /****************************************************************************
@@ -211,7 +194,7 @@ static int backtrace_branch(unsigned long top, unsigned long sp,
 
 void up_backtrace_init_code_regions(void **regions)
 {
-  g_backtrace_code_regions = regions;
+	g_backtrace_code_regions = regions;
 }
 
 /****************************************************************************
@@ -250,70 +233,50 @@ void up_backtrace_init_code_regions(void **regions)
 #ifdef CONFIG_MM_KASAN
 __attribute__((no_sanitize_address))
 #endif
-int up_backtrace(struct tcb_s *tcb,
-		 void **buffer, int size, int skip)
+int up_backtrace(struct tcb_s *tcb, void **buffer, int size, int skip)
 {
-  struct tcb_s *rtcb = this_task();
-  unsigned long sp;
-  int ret;
+	struct tcb_s *rtcb = this_task();
+	unsigned long sp;
+	int ret;
 
-  if (size <= 0 || !buffer)
-    {
-      return 0;
-    }
+	if (size <= 0 || !buffer) {
+		return 0;
+	}
 
-  if (tcb == NULL)
-    {
-      tcb = rtcb;
-    }
+	if (tcb == NULL) {
+		tcb = rtcb;
+	}
 
-  if (tcb == rtcb)
-    {
-      sp = up_getsp();
+	if (tcb == rtcb) {
+		sp = up_getsp();
 
-      if (up_interrupt_context())
-	{
-	  unsigned long top =
+		if (up_interrupt_context()) {
+			unsigned long top =
 #if CONFIG_ARCH_INTERRUPTSTACK > 7
-	    (unsigned long)&g_intstackbase + INTSTACK_SIZE;
+				(unsigned long)&g_intstackbase + INTSTACK_SIZE;
 #else
-	    (unsigned long)rtcb->stack_base_ptr +
-			   rtcb->adj_stack_size;
+				(unsigned long)rtcb->stack_base_ptr + rtcb->adj_stack_size;
 #endif
-	  ret = backtrace_branch(top, sp, buffer, size, &skip);
-	  if (ret < size)
-	    {
-	      ret += backtrace_branch((unsigned long)
-				      rtcb->stack_base_ptr +
-				      rtcb->adj_stack_size,
-				      CURRENT_REGS[REG_SP],
-				      &buffer[ret],
-				      size - ret, &skip);
-	    }
-	}
-      else
-	{
-	  ret = backtrace_branch((unsigned long)
-				 rtcb->stack_base_ptr +
-				 rtcb->adj_stack_size, sp,
-				 buffer, size, &skip);
-	}
-    }
-  else
-    {
-      ret = 0;
+			ret = backtrace_branch(top, sp, buffer, size, &skip);
+			if (ret < size) {
+				ret += backtrace_branch((unsigned long)
+										rtcb->stack_base_ptr + rtcb->adj_stack_size, CURRENT_REGS[REG_SP], &buffer[ret], size - ret, &skip);
+			}
+		} else {
+			ret = backtrace_branch((unsigned long)
+								   rtcb->stack_base_ptr + rtcb->adj_stack_size, sp, buffer, size, &skip);
+		}
+	} else {
+		ret = 0;
 
-      if (tcb->xcp.regs[REG_PC] && skip-- <= 0)
-	{
-	  buffer[ret++] = (void *)tcb->xcp.regs[REG_PC];
+		if (tcb->xcp.regs[REG_PC] && skip-- <= 0) {
+			buffer[ret++] = (void *)tcb->xcp.regs[REG_PC];
+		}
+
+		sp = tcb->xcp.regs[REG_SP];
+		ret += backtrace_branch((unsigned long)
+								tcb->stack_base_ptr + tcb->adj_stack_size, sp, &buffer[ret], size - ret, &skip);
 	}
 
-      sp = tcb->xcp.regs[REG_SP];
-      ret += backtrace_branch((unsigned long)
-			      tcb->stack_base_ptr +
-			      tcb->adj_stack_size, sp,
-			      &buffer[ret], size - ret, &skip);
-    }
-
-  return ret;
+	return ret;
 }
