@@ -555,8 +555,16 @@ config UNWINDER_ARM
 endchoice
 
 config ARM_UNWIND
-	bool
+	bool "Enable ARM EHABI unwind tables"
 	default y if UNWINDER_ARM
+	depends on SCHED_BACKTRACE
+	help
+	  Enable generation of ARM EHABI unwind tables (.ARM.exidx/.ARM.extab)
+	  for stack unwinding support. Required for accurate backtraces on
+	  ARM platforms using the EHABI unwinder.
+
+	  NOTE: Files loaded into DRAM (non-XIP) are automatically compiled
+	  without unwind tables to prevent R_ARM_PREL31 overflow.
 
 endif  # SCHED_BACKTRACE
 

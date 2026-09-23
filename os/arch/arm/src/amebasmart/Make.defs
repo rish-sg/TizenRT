@@ -326,3 +326,13 @@ else
 endif
 endif
 
+# Disable unwind tables for DRAM-loaded files to prevent R_ARM_PREL31 overflow
+# These files are placed in .code or .sramdram.only.text sections (DRAM),
+# which is too far from .ARM.exidx (XIP) for R_ARM_PREL31 relocations.
+ifeq ($(CONFIG_ARM_UNWIND),y)
+arm_mmu.o: CFLAGS += -fno-unwind-tables -fno-exceptions
+arm_cpupause.o: CFLAGS += -fno-unwind-tables -fno-exceptions
+arm_dataabort.o: CFLAGS += -fno-unwind-tables -fno-exceptions
+amebasmart_boot.o: CFLAGS += -fno-unwind-tables -fno-exceptions
+endif
+

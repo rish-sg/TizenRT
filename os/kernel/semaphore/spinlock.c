@@ -1,7 +1,3 @@
-/* Disable unwind tables to prevent R_ARM_PREL31 overflow in XIP builds */
-#pragma GCC optimize("no-unwind-tables")
-#pragma GCC optimize("no-exceptions")
-
 /****************************************************************************
  * kernel/semaphore/spinlock.c
  *
