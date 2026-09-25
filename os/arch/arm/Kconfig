@@ -520,37 +520,62 @@ choice
 	default UNWINDER_ARM if ARCH_CHIP_AMEBASMART
 	default UNWINDER_FRAME_POINTER
 	help
-	  This determines which method will be used for unwinding
-	  TizenRT stack traces for debug.
-
-	  For AMEBASMART (Cortex-A32), ARM EHABI is recommended.
-	  For other platforms, Frame Pointer is the default.
+	  Select the stack unwinding method for backtrace generation.
+  
+  NOTE: All unwinders provide up_backtrace() for stack unwinding.
+  Additionally, arm_backtrace_unwind.c is always compiled to provide
+  up_get_binary_region() for identifying which binary a PC address
+  belongs to (used by assert backtraces).
+  
+  EHABI (ARM Exception Handling ABI):
+    - Most accurate unwinding method
+    - Supports C++ exception unwinding
+    - Requires: EABI toolchain, -funwind-tables compiler flag
+    - Recommended for AMEBASMART (Cortex-A32)
+  
+  Frame Pointer:
+    - Good accuracy, widely supported
+    - Requires: -fno-omit-frame-pointer compiler flag
+    - Slightly larger code size
+    - Works on all ARM platforms
+  
+  Stack Pointer (DEPRECATED):
+    - Basic stack scanning for branch instructions
+    - No special compiler flags required
+    - Less accurate than EHABI or Frame Pointer
+    - Will be removed in a future release
+  
+  Legacy Thumb (default if no unwinder selected):
+    - Basic stack scanning for Thumb mode
+    - Only used when ARM_THUMB is enabled
 
 config UNWINDER_FRAME_POINTER
 	bool "Frame pointer unwinder"
 	select FRAME_POINTER
 	help
-	  This option enables the frame pointer unwinder for unwinding
-	  TizenRT stack traces. Requires -fno-omit-frame-pointer compiler flag.
+	  Uses frame pointer chaining for stack unwinding.
+	  Requires compilation with -fno-omit-frame-pointer.
+	  Good balance of accuracy and compatibility.
 
 config UNWINDER_STACK_POINTER
-	bool "Stack pointer unwinder"
+	bool "Stack pointer unwinder (DEPRECATED)"
 	help
-	  This option enables the stack pointer unwinder for unwinding
-	  TizenRT stack traces. Scans stack for branch instructions (BL/BLX).
-	  Does not require special compiler flags but may be less accurate.
+	  Scans stack for branch instructions (BL/BLX).
+	  Does not require special compiler flags.
+	  Less accurate than EHABI or frame pointer methods.
+	  
+	  NOTE: This unwinder option will be removed in a future release.
+	        Please use EHABI or Frame Pointer instead.
 
 config UNWINDER_ARM
 	bool "ARM EHABI stack unwinder"
 	help
-	  This option enables stack unwinding support using the ARM
-	  Exception Handling ABI (.ARM.exidx tables). Requires EABI
-	  toolchain and -funwind-tables compiler flag. This is the most
-	  accurate unwinder and supports C++ exception unwinding.
-
-	  NOTE: Frame pointer support (FRAME_POINTER) is optional.
-	  Enabling FRAME_POINTER provides a fallback unwinding method
-	  and better debugger support, but increases code size slightly.
+	  Uses ARM Exception Handling ABI (.ARM.exidx tables).
+	  Most accurate method, supports C++ exceptions.
+	  Requires EABI toolchain and -funwind-tables flag.
+	  
+	  NOTE: arm_backtrace_unwind.c is always compiled (for up_get_binary_region),
+	        but the EHABI unwinding code is only used when this option is selected.
 
 endchoice
 
@@ -559,12 +584,12 @@ config ARM_UNWIND
 	default y if UNWINDER_ARM
 	depends on SCHED_BACKTRACE
 	help
-	  Enable generation of ARM EHABI unwind tables (.ARM.exidx/.ARM.extab)
-	  for stack unwinding support. Required for accurate backtraces on
-	  ARM platforms using the EHABI unwinder.
-
-	  NOTE: Files loaded into DRAM (non-XIP) are automatically compiled
-	  without unwind tables to prevent R_ARM_PREL31 overflow.
+	  Enable generation of ARM EHABI unwind tables (.ARM.exidx/.ARM.extab).
+	  Required for EHABI stack unwinding support.
+	  
+	  NOTE: This option is automatically selected when UNWINDER_ARM is chosen.
+	        Files loaded into DRAM (non-XIP) are automatically compiled
+	        without unwind tables to prevent R_ARM_PREL31 overflow.
 
 endif  # SCHED_BACKTRACE
 

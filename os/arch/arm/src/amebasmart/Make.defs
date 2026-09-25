@@ -119,8 +119,10 @@ ifeq ($(CONFIG_SCHED_BACKTRACE),y)
     CMN_CSRCS += ../common/arm_backtrace_sp.c
   endif
 
-  # Fallback to legacy if no unwinder selected
-  ifeq ($(CONFIG_UNWINDER_FRAME_POINTER)$(CONFIG_UNWINDER_STACK_POINTER)$(CONFIG_UNWINDER_ARM),)
+  # Use legacy unwinder if no modern unwinder selected
+# NOTE: This is compile-time selection, NOT runtime fallback
+# Only ONE unwinder implementation is compiled into the binary
+  ifeq ($(CONFIG_UNWINDER_FRAME_POINTER)$(CONFIG_UNWINDER_ARM),)
     ifeq ($(CONFIG_FRAME_POINTER),y)
       ifeq ($(CONFIG_ARM_THUMB),y)
         CMN_CSRCS += arm_backtrace_thumb.c

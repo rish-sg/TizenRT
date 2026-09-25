@@ -117,7 +117,7 @@ const char *up_get_binary_region(unsigned long pc);
 
 const char *up_get_binary_name(unsigned long pc)
 {
-  /* Use the exidx-based implementation from arm_backtrace_unwind.c */
+  /* Get binary region name from binary manager or kernel */
   return up_get_binary_region(pc);
 }
 
@@ -618,7 +618,7 @@ static inline void print_assert_detail(const uint8_t *filename, int lineno, stru
 		for (i = 0; i < frames && i < 32; i++) {
 			const char *binary = up_get_binary_name((unsigned long)buffer[i]);
 
-			lldbg("  [%2d]: %p (%s) [EHABI]\n", i, buffer[i], binary);
+			lldbg("  [%2d]: %p (%s)\n", i, buffer[i], binary);
 		}
 		if (frames == 0) {
 			lldbg("  (No frames captured)\n");

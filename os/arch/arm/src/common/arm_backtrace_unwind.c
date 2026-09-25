@@ -40,6 +40,7 @@
 
 #if defined(CONFIG_APP_BINARY_SEPARATION) && defined(CONFIG_BINARY_MANAGER)
 #include "binary_manager/binary_manager_internal.h"
+
 #endif
 
 #if CONFIG_ARCH_INTERRUPTSTACK > 7
@@ -94,6 +95,48 @@ static const struct __EIT_entry *search_index(unsigned long addr, const struct _
 	}
 	return (start->fnoffset <= addr_prel31) ? start : NULL;
 }
+
+
+/* EHABI unwinding code - only used when CONFIG_ARM_UNWIND is enabled */
+
+/****************************************************************************
+ * Name: up_get_binary_region
+ *
+ * Description:
+ *   Determine which binary region a PC address belongs to.
+ *   Uses binary manager's address list for accurate identification.
+ *
+ * Input Parameters:
+ *   pc - Program counter address
+ *
+ * Returned Value:
+ *   Pointer to region name string ("kernel", "common", "app1", etc.)
+ *
+ ****************************************************************************/
+
+const char *up_get_binary_region(unsigned long pc)
+{
+#if defined(CONFIG_APP_BINARY_SEPARATION) && defined(CONFIG_BINARY_MANAGER)
+	/* Loadable build: Use binary manager for accurate region detection */
+	int bin_idx;
+	bin_addr_info_t *bin_list = get_bin_addr_list();
+
+	if (bin_list) {
+		for (bin_idx = 0; bin_idx <= CONFIG_NUM_APPS; bin_idx++) {
+			if (bin_list[bin_idx].text_addr != 0 && pc >= bin_list[bin_idx].text_addr && pc < bin_list[bin_idx].text_addr + bin_list[bin_idx].text_size) {
+				return BIN_NAME(bin_idx);
+			}
+		}
+	}
+	return "kernel";
+#else
+	/* Flat build: No binary manager, use simple detection */
+	/* All code is in kernel binary for flat builds */
+	return "kernel";
+#endif
+}
+
+#if defined(CONFIG_ARM_UNWIND)
 
 static const struct __EIT_entry *unwind_find_origin(const struct __EIT_entry *start, const struct __EIT_entry *stop)
 {
@@ -208,46 +251,7 @@ bool up_has_exidx_entry(unsigned long pc)
 	/* Not in any app binary - search kernel exidx */
 	entry = search_index(pc, __exidx_start, unwind_find_origin(__exidx_start, __exidx_end), __exidx_end);
 	return (entry != NULL && entry->content != 1);
-}
-
-/****************************************************************************
- * Name: up_get_binary_region
- *
- * Description:
- *   Determine which binary region a PC address belongs to.
- *   Uses binary manager's address list for accurate identification.
- *
- * Input Parameters:
- *   pc - Program counter address
- *
- * Returned Value:
- *   Pointer to region name string ("kernel", "common", "app1", etc.)
- *
- ****************************************************************************/
-
-const char *up_get_binary_region(unsigned long pc)
-{
-#if defined(CONFIG_APP_BINARY_SEPARATION) && defined(CONFIG_BINARY_MANAGER)
-	/* Loadable build: Use binary manager for accurate region detection */
-	int bin_idx;
-	bin_addr_info_t *bin_list = get_bin_addr_list();
-
-	if (bin_list) {
-		for (bin_idx = 0; bin_idx <= CONFIG_NUM_APPS; bin_idx++) {
-			if (bin_list[bin_idx].text_addr != 0 && pc >= bin_list[bin_idx].text_addr && pc < bin_list[bin_idx].text_addr + bin_list[bin_idx].text_size) {
-				return BIN_NAME(bin_idx);
-			}
-		}
-	}
-	return "kernel";
-#else
-	/* Flat build: No binary manager, use simple detection */
-	/* All code is in kernel binary for flat builds */
-	return "kernel";
-#endif
-}
-
-static unsigned long unwind_get_byte(struct unwind_ctrl_s *ctrl)
+}static unsigned long unwind_get_byte(struct unwind_ctrl_s *ctrl)
 {
 	unsigned long ret;
 
@@ -799,3 +803,5 @@ int up_backtrace_current(void **buffer, int size, int skip)
 	return backtrace_unwind(&frame, buffer, size, &skip, NULL);
 }
 #endif							/* CONFIG_SCHED_BACKTRACE */
+
+#endif /* CONFIG_ARM_UNWIND */
