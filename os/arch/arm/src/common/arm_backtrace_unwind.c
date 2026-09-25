@@ -36,6 +36,7 @@
 #include <tinyara/binfmt/elf.h>
 #include "sched/sched.h"
 #include "up_internal.h"
+#include "arm_backtrace_unwind.h"
 
 #if defined(CONFIG_APP_BINARY_SEPARATION) && defined(CONFIG_BINARY_MANAGER)
 #include "binary_manager/binary_manager_internal.h"
@@ -49,39 +50,6 @@ extern uint32_t g_intstackbase;
 #endif
 #endif
 
-/* ARM register indices */
-enum regs {
-#ifdef CONFIG_ARM_THUMB
-	FP = 7,
-#else
-	FP = 11,
-#endif
-	SP = 13,
-	LR = 14,
-	PC = 15
-};
-
-/* Unwinding frame state */
-struct unwind_frame_s {
-	unsigned long fp;
-	unsigned long sp;
-	unsigned long lr;
-	unsigned long pc;
-	unsigned long *lr_addr;
-	unsigned long stack_base;
-	unsigned long stack_top;
-};
-
-/* Unwinding control state */
-struct unwind_ctrl_s {
-	unsigned long vrs[16];		/* Virtual register set */
-	const unsigned long *insn;	/* Pointer to current unwind instruction */
-	unsigned long stack_top;	/* Stack upper bound for validation */
-	unsigned long *lr_addr;		/* Address where LR was stored on stack */
-	int entries;				/* Number of remaining unwind instruction words */
-	int byte;					/* Current byte index within instruction word */
-	int check_each_pop;			/* Validate stack bounds on each pop */
-};
 
 /* Minimum valid PC address (Filter out null/small values) */
 #define MIN_VALID_PC      0x10

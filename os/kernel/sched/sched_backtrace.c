@@ -129,24 +129,6 @@ int sched_backtrace(pid_t tid, FAR void **buffer, int size, int skip)
 		return 0;
 	}
 #endif
-	/*TODO*/
-#if 0
-	/* If the task is running on another CPU, we need to use IPI */
-	if (tcb->cpu != this_cpu() && tcb->task_state == TSTATE_TASK_RUNNING) {
-		struct backtrace_arg_s arg;
-
-		arg.buffer = buffer;
-		arg.size = size;
-		arg.skip = skip;
-		arg.stacksize = 0;
-
-		/* Send IPI to the target CPU */
-
-		up_send_sipi(tcb->cpu, sched_backtrace_handler, &arg);
-
-		return arg.stacksize;
-	}
-#endif
 
 	/* Task is not running or on the same CPU, we can safely get the backtrace */
 	/* asserted_location=0 for normal backtrace (not from ASSERT) */

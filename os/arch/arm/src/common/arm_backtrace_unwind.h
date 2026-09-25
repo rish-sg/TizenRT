@@ -68,39 +68,6 @@ struct unwind_ctrl_s {
 	int check_each_pop;			/* Validate stack bounds on each pop */
 };
 
-/* ARM EHABI unwind table entry structure */
-struct __EIT_entry {
-	unsigned long fnoffset;		/* prel31 offset to function start */
-	unsigned long content;		/* Unwind instructions or offset */
-};
-
-/****************************************************************************
- * Public Function Prototypes
- ****************************************************************************/
-
-#ifdef __cplusplus
-#define EXTERN extern "C"
-extern "C" {
-#else
-#define EXTERN extern
-#endif
-
-/****************************************************************************
- * Name: up_has_exidx_entry
- *
- * Description:
- *   Check if a PC address has a valid exidx unwind entry.
- *   Used to determine if EHABI unwinding is available for a given address.
- *
- * Input Parameters:
- *   pc - Program counter address to check
- *
- * Returned Value:
- *   true if exidx entry exists, false otherwise
- *
- ****************************************************************************/
-
-bool up_has_exidx_entry(unsigned long pc);
 
 /****************************************************************************
  * Name: up_get_binary_region
@@ -118,23 +85,6 @@ bool up_has_exidx_entry(unsigned long pc);
 
 const char *up_get_binary_region(unsigned long pc);
 
-/****************************************************************************
- * Name: unwind_find_entry
- *
- * Description:
- *   Find the EHABI unwind table entry for a given PC address.
- *   Searches the kernel exidx table and registered app exidx tables
- *   for the entry that covers the specified PC address.
- *
- * Input Parameters:
- *   addr - Address to find entry for
- *
- * Returned Value:
- *   Pointer to the EIT entry, or NULL if not found
- *
- ****************************************************************************/
-
-const struct __EIT_entry *unwind_find_entry(unsigned long addr);
 
 /****************************************************************************
  * Name: up_register_exidx
@@ -157,43 +107,6 @@ const struct __EIT_entry *unwind_find_entry(unsigned long addr);
 #ifdef CONFIG_APP_BINARY_SEPARATION
 void up_register_exidx(unsigned long exidx_start, unsigned long exidx_size, unsigned long text_start, unsigned long text_end);
 #endif
-
-/****************************************************************************
- * Name: unwind_frame
- *
- * Description:
- *   Unwind a single stack frame using ARM EHABI.
- *   Updates the frame structure with the previous frame's PC, SP, and LR.
- *
- * Input Parameters:
- *   frame - Frame structure to update
- *
- * Returned Value:
- *   0 on success, negative error code on failure
- *
- ****************************************************************************/
-
-int unwind_frame(struct unwind_frame_s *frame);
-
-/****************************************************************************
- * Name: backtrace_unwind
- *
- * Description:
- *   Main EHABI backtrace engine. Unwinds the stack using ARM EHABI
- *   unwind tables and collects return addresses.
- *
- * Input Parameters:
- *   frame  - Initial frame (PC, SP, LR, stack bounds)
- *   buffer - Buffer to store return addresses
- *   size   - Maximum number of frames to capture
- *   skip   - Number of frames to skip (input/output)
- *
- * Returned Value:
- *   Number of frames captured
- *
- ****************************************************************************/
-
-int backtrace_unwind(struct unwind_frame_s *frame, void **buffer, int size, int *skip, unsigned char *methods);
 
 #undef EXTERN
 #ifdef __cplusplus

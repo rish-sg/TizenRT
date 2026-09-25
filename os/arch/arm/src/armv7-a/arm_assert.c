@@ -81,6 +81,7 @@
 #ifdef CONFIG_APP_BINARY_SEPARATION
 #include "binary_manager/binary_manager_internal.h"
 #include <tinyara/binfmt/elf.h>
+#include "../common/arm_backtrace_unwind.h"
 #endif
 #include <tinyara/security_level.h>
 #ifdef CONFIG_SYSTEM_REBOOT_REASON
@@ -121,24 +122,6 @@ const char *up_get_binary_name(unsigned long pc)
 }
 
 
-
-#ifdef CONFIG_SCHED_BACKTRACE
-#include <tinyara/elf.h>
-
-/* Unwind frame structure for backtrace */
-struct unwind_frame_s {
-  unsigned long fp;           /* Frame pointer */
-  unsigned long sp;           /* Stack pointer */
-  unsigned long lr;           /* Link register */
-  unsigned long pc;           /* Program counter */
-  unsigned long *lr_addr;     /* Address of LR on stack */
-  unsigned long stack_base;   /* Lowest sp allowed */
-  unsigned long stack_top;    /* Highest sp allowed */
-};
-
-/* Forward declaration */
-int backtrace_unwind(struct unwind_frame_s *frame, void **buffer, int size, int *skip);
-#endif
 
 bool abort_mode = false;
 
