@@ -145,6 +145,10 @@ else ifeq ($(CONFIG_ENABLE_KILLALL),y)
 CSRCS += utils_kill.c
 endif
 
+ifeq ($(CONFIG_ENABLE_MTDTEST),y)
+CSRCS += utils_mtdtest.c
+endif
+
 ifeq ($(CONFIG_ENABLE_PS),y)
 CSRCS += utils_ps.c
 endif

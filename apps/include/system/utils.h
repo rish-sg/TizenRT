@@ -85,6 +85,10 @@ int utils_kill(int argc, char **args);
 int utils_killall(int argc, char **args);
 #endif
 
+#if defined(CONFIG_ENABLE_MTDTEST)
+int utils_mtdtest(int argc, char **args);
+#endif
+
 #if defined(CONFIG_ENABLE_PS)
 int utils_ps(int argc, char **args);
 #endif

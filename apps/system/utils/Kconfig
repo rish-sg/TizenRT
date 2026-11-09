@@ -194,6 +194,18 @@ config ENABLE_KILLALL
 	---help---
 		Send a signal to all processes running any of the specified commands
 
+config ENABLE_MTDTEST
+	bool "mtdtest"
+	default n
+	depends on MTD
+	---help---
+		Enable mtdtest command in TASH.  Erases, writes and verifies
+		erase blocks of an FTL-backed MTD block device (default
+		/dev/mtdblock7) to exercise the flash erase/program path.
+		Writing to the partition that holds the running kernel, the
+		OTA kernel slot or the boot parameters is refused unless
+		forced.
+
 config ENABLE_PS
 	bool "ps"
 	default y
