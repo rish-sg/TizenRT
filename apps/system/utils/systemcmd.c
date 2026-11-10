@@ -52,6 +52,12 @@ const static tash_cmdlist_t system_cmds[] = {
 #if defined(CONFIG_ENABLE_KILLALL)
 	{"killall",  utils_killall,      TASH_EXECMD_SYNC},
 #endif
+#if defined(CONFIG_ENABLE_XIPMON)
+	{"xipmon",   utils_xipmon,      TASH_EXECMD_ASYNC},
+#endif
+#if defined(CONFIG_ENABLE_FLASHFIGHT)
+	{"flashfight", utils_flashfight, TASH_EXECMD_ASYNC},
+#endif
 #if defined(CONFIG_ENABLE_PRODCONFIG)
 	{"prodconfig", utils_prodconfig, TASH_EXECMD_SYNC},
 #endif
