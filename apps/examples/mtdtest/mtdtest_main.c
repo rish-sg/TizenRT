@@ -31,6 +31,7 @@
 #include <stdint.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
+#include <time.h>
 
 #include <tinyara/mtd/mtd.h>
 
@@ -131,10 +132,13 @@ static int mtdtest_write_exact(int fd, FAR const uint8_t *buf, size_t len)
  *
  * Description:
  *   mtdtest [-d dev] [-b erase-blocks] [-p passes] [-y] [-F] [-s]
+ *           [-r] [-l loops]
  *
- *   For every pass and every erase block (starting at erase block 1,
- *   block 0 holds the FTL bookkeeping), write a deterministic pattern,
- *   read the data back and compare.  The write path goes through the
+ *   For every loop, pass and every erase block (starting at erase
+ *   block 1, block 0 holds the FTL bookkeeping), write a deterministic
+ *   pattern, read the data back and compare.  -r randomizes the block
+ *   order with a fresh seed per loop, -l repeats the whole test for
+ *   soak runs.  The write path goes through the
  *   FTL into the MTD erase and program operations of the flash driver,
  *   which is where the XIP-safe CPU pause has to happen on rtl8730e.
  *
@@ -161,8 +165,17 @@ int mtdtest_main(int argc, char **argv)
 	int spinner = 0;
 	int pass;
 	int blk;
+	int loop;
 	int failed = 0;
 	int i;
+	int loops = 1;
+	int randomize = 0;
+	int j;
+	int tmp;
+	FAR int *ord = NULL;
+	unsigned int rseed = 0;
+	struct timespec ts0;
+	struct timespec ts1;
 
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-d") == 0 && i + 1 < argc) {
@@ -177,9 +190,13 @@ int mtdtest_main(int argc, char **argv)
 			force = 1;
 		} else if (strcmp(argv[i], "-s") == 0) {
 			spinner = 1;
+		} else if (strcmp(args[i], "-l") == 0 && i + 1 < argc) {
+			loops = atoi(args[++i]);
+		} else if (strcmp(args[i], "-r") == 0) {
+			randomize = 1;
 		} else {
 			printf("Usage: mtdtest [-d dev] [-b erase-blocks] [-p passes]"
-			       " [-y] [-F] [-s]\n");
+			       " [-y] [-F] [-s] [-r] [-l loops]\n");
 			return ERROR;
 		}
 	}
@@ -251,12 +268,44 @@ int mtdtest_main(int argc, char **argv)
 		return ERROR;
 	}
 
+	if (randomize) {
+		ord = (FAR int *)malloc((size_t)eblks * sizeof(int));
+		if (ord == NULL) {
+			printf("mtdtest: out of memory\n");
+			free(wbuf);
+			free(rbuf);
+			close(fd);
+			return ERROR;
+		}
+
+		rseed = (unsigned int)time(NULL) ^ (unsigned int)eblks;
+	}
+
+	for (loop = 1; loop <= loops && !failed; loop++) {
+	if (randomize) {
+		for (i = 0; i < eblks; i++) {
+			ord[i] = i;
+		}
+
+		for (i = eblks - 1; i > 0; i--) {
+			j = (int)(rand_r(&rseed) % (i + 1));
+			tmp = ord[i];
+			ord[i] = ord[j];
+			ord[j] = tmp;
+		}
+	}
+
+	clock_gettime(CLOCK_MONOTONIC, &ts0);
+
 	for (pass = 1; pass <= passes && !failed; pass++) {
 		for (blk = 0; blk < eblks; blk++) {
+			int idx = randomize ? ord[blk] : blk;
+
 			/* Skip erase block 0, it holds the FTL bookkeeping */
 
-			off = (off_t)(blk + 1) * (off_t)geo.erasesize;
-			pattern = (uint8_t)(0xA5 ^ (uint8_t)pass ^ (uint8_t)blk);
+			off = (off_t)(idx + 1) * (off_t)geo.erasesize;
+			pattern = (uint8_t)(0xA5 ^ (uint8_t)pass ^ (uint8_t)idx
+			                    ^ (uint8_t)loop);
 
 			if (lseek(fd, off, SEEK_SET) < 0) {
 				printf("mtdtest: lseek to %ld failed, errno %d\n",
@@ -296,17 +345,28 @@ int mtdtest_main(int argc, char **argv)
 			       blk + 1, eblks, spin[(blk + pass) & 3]);
 			} else {
 				printf("mtdtest: [%d/%d] block %d (offset %ld) OK\n",
-			       blk + 1, eblks, blk, (long)off);
+			       blk + 1, eblks, idx, (long)off);
 			}
 			fflush(stdout);
 		}
 	}
+
+	clock_gettime(CLOCK_MONOTONIC, &ts1);
+	printf("mtdtest: LOOP %d/%d done in %lu ms on %s\n", loop, loops,
+	       (unsigned long)((ts1.tv_sec - ts0.tv_sec) * 1000 +
+	                      (ts1.tv_nsec - ts0.tv_nsec) / 1000000), dev);
+	clock_gettime(CLOCK_MONOTONIC, &ts0);
+	}
+
 	if (spinner) {
 		printf("\n");
 	}
 
 	free(wbuf);
 	free(rbuf);
+	if (ord != NULL) {
+		free(ord);
+	}
 	close(fd);
 
 	if (failed) {
@@ -314,7 +374,8 @@ int mtdtest_main(int argc, char **argv)
 		return ERROR;
 	}
 
-	printf("mtdtest: PASS: %d erase blocks x %d passes erased, written"
-	       " and verified on %s\n", eblks, passes, dev);
+	printf("mtdtest: PASS: %d erase blocks x %d passes x %d loop(s)%s"
+	       " erased, written and verified on %s\n", eblks, passes, loops,
+	       randomize ? ", random order" : "", dev);
 	return OK;
 }
