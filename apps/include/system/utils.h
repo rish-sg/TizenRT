@@ -85,6 +85,14 @@ int utils_kill(int argc, char **args);
 int utils_killall(int argc, char **args);
 #endif
 
+#if defined(CONFIG_ENABLE_XIPMON)
+int utils_xipmon(int argc, char **args);
+#endif
+
+#if defined(CONFIG_ENABLE_FLASHFIGHT)
+int utils_flashfight(int argc, char **args);
+#endif
+
 #if defined(CONFIG_ENABLE_PS)
 int utils_ps(int argc, char **args);
 #endif

@@ -145,6 +145,14 @@ else ifeq ($(CONFIG_ENABLE_KILLALL),y)
 CSRCS += utils_kill.c
 endif
 
+ifeq ($(CONFIG_ENABLE_XIPMON),y)
+CSRCS += utils_xipmon.c
+endif
+
+ifeq ($(CONFIG_ENABLE_FLASHFIGHT),y)
+CSRCS += utils_flashfight.c
+endif
+
 ifeq ($(CONFIG_ENABLE_PS),y)
 CSRCS += utils_ps.c
 endif
