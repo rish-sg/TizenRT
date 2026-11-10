@@ -194,6 +194,25 @@ config ENABLE_KILLALL
 	---help---
 		Send a signal to all processes running any of the specified commands
 
+config ENABLE_XIPMON
+	bool "xipmon"
+	default n
+	---help---
+		Enable xipmon command in TASH.  Periodically CRCs a window of
+		code executed in place from flash and reports any mismatch,
+		tripping on silent XIP corruption that the pause handshake
+		timeouts cannot detect.
+
+config ENABLE_FLASHFIGHT
+	bool "flashfight"
+	default n
+	depends on SMP && MTD
+	---help---
+		Enable flashfight command in TASH.  Runs one flash
+		write/verify writer pinned to each CA32 core in parallel to
+		maximize cross-core contention on the flash driver lock and
+		the CPU pause handshake.
+
 config ENABLE_PS
 	bool "ps"
 	default y
