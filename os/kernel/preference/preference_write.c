@@ -25,8 +25,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <fcntl.h>
-#include <crc32.h>
 #include <sys/stat.h>
+#include <tinyara/crc32.h>
 #include <tinyara/preference.h>
 #if CONFIG_TASK_NAME_SIZE > 0
 #include <tinyara/sched.h>
@@ -51,7 +51,7 @@ static int preference_private_setup(void)
 	}
 
 	/* Assign full path for app preference directory */
-	ret = PREFERENCE_ASPRINTF(&path, "%s/%s", PREF_PRIVATE_PATH, tcb->group->tg_name);
+	ret = PREFERENCE_ASPRINTF(&path, "%s/%s", PREF_PRIVATE_PATH, get_task_name(tcb));
 
 	/* Make app preference directory */
 	ret = mkdir(path, 0777);

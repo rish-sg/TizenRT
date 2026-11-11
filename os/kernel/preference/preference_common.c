@@ -44,7 +44,7 @@ int preference_get_private_keypath(const char *key, char **path)
 		return PREFERENCE_OPERATION_FAIL;
 	}
 	/* Assign full path for app preference directory */
-	ret = PREFERENCE_ASPRINTF(path, "%s/%s/%s", PREF_PRIVATE_PATH, tcb->group->tg_name, key);
+	ret = PREFERENCE_ASPRINTF(path, "%s/%s/%s", PREF_PRIVATE_PATH, get_task_name(tcb), key);
 	if (ret < 0) {
 		prefdbg("Failed to allocate path\n");
 		return PREFERENCE_OUT_OF_MEMORY;

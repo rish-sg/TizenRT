@@ -118,7 +118,7 @@ int preference_remove_all_key(int type, const char *path)
 		}
 
 		/* Assign full path for app preference directory */
-		ret = PREFERENCE_ASPRINTF(&dir_path, "%s/%s", PREF_PRIVATE_PATH, tcb->group->tg_name);
+		ret = PREFERENCE_ASPRINTF(&dir_path, "%s/%s", PREF_PRIVATE_PATH, get_task_name(tcb));
 #else
 		prefdbg("Not supported private preference\n");
 		return PREFERENCE_NOT_SUPPORTED;
