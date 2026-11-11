@@ -178,10 +178,10 @@ struct socket {
 
 /* This defines a list of sockets indexed by the socket descriptor */
 
-#if CONFIG_NSOCKET_DESCRIPTORS > 0
+#if CONFIG_NBSDSOCKET_DESCRIPTORS > 0
 struct socketlist {
 	sem_t sl_sem;				/* Manage access to the socket list */
-	struct socket sl_sockets[CONFIG_NSOCKET_DESCRIPTORS];
+	struct socket sl_sockets[CONFIG_NBSDSOCKET_DESCRIPTORS];
 };
 
 #endif

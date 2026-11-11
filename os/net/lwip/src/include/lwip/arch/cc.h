@@ -55,13 +55,13 @@
 #include <errno.h>
 #include "cpu.h"
 
-typedef unsigned char u8_t;
-typedef signed char s8_t;
-typedef unsigned short u16_t;
-typedef signed short s16_t;
-typedef unsigned int u32_t;
-typedef signed int s32_t;
-typedef u32_t mem_ptr_t;
+/* typedef unsigned char u8_t;; moved to lwip/arch.h (12.13 sync) */
+/* typedef signed char s8_t;; moved to lwip/arch.h (12.13 sync) */
+/* typedef unsigned short u16_t;; moved to lwip/arch.h (12.13 sync) */
+/* typedef signed short s16_t;; moved to lwip/arch.h (12.13 sync) */
+/* typedef unsigned int u32_t;; moved to lwip/arch.h (12.13 sync) */
+/* typedef signed int s32_t;; moved to lwip/arch.h (12.13 sync) */
+/* typedef u32_t mem_ptr_t;; moved to lwip/arch.h (12.13 sync) */
 typedef int sys_prot_t;
 
 #define U16_F "hu"

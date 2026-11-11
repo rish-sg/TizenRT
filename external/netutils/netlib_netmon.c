@@ -21,7 +21,7 @@
  ****************************************************************************/
 
 #include <tinyara/config.h>
-#if defined(CONFIG_NET) && (CONFIG_NSOCKET_DESCRIPTORS > 0)
+#if defined(CONFIG_NET) && (CONFIG_NBSDSOCKET_DESCRIPTORS > 0)
 
 #include <errno.h>
 #include <sys/socket.h>
@@ -125,4 +125,4 @@ int netlib_netmon_devstats(const char *ifname, void **arg)
 	}
 	return req.req_res;
 }
-#endif /* CONFIG_NET && CONFIG_NSOCKET_DESCRIPTORS */
+#endif /* CONFIG_NET && CONFIG_NBSDSOCKET_DESCRIPTORS */

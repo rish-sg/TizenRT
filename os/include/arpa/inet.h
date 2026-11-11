@@ -218,7 +218,7 @@ in_addr_t inet_netof(struct in_addr in);
 #else
 ///@cond
 FAR char *_inet_ntoa(in_addr_t in);
-# define inet_ntoa(in) _inet_ntoa(in.s_addr);
+# define inet_ntoa(in) _inet_ntoa((in).s_addr)
 
 in_addr_t _inet_lnaof(in_addr_t in);
 # define inet_lnaof(in) _inet_lnaof(in.s_addr);

@@ -61,8 +61,8 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 
-typedef unsigned char u8_t;
-typedef unsigned int u32_t;
+/* u8_t: provided via 12.13 header chain */
+/* u32_t: provided via 12.13 header chain */
 
 /** 255.255.255.255 */
 #define IPADDR_NONE         ((u32_t)0xffffffffUL)

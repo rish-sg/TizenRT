@@ -22,7 +22,7 @@
 #include <net/if.h>
 #include <pthread.h>
 #include <debug.h>
-#include <queue.h>
+#include <tinyara/queue.h>
 #include <tinyara/kmalloc.h>
 #include <tinyara/net/if/wifi.h>
 #include "lwnl_evt_queue.h"

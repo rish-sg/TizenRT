@@ -78,7 +78,7 @@
 #if LWIP_SOCKET					/* don't build if not configured for use in lwipopts.h */
 
 #ifdef CONFIG_NET_NETMON
-#include <queue.h>
+#include <tinyara/queue.h>
 #endif
 
 #include "lwip/api.h"
@@ -382,7 +382,7 @@ struct lwip_sock *get_socket(int s, void *group)
 
 	s -= LWIP_SOCKET_OFFSET;
 
-	if ((s < 0) || (s >= CONFIG_NSOCKET_DESCRIPTORS)) {
+	if ((s < 0) || (s >= CONFIG_NBSDSOCKET_DESCRIPTORS)) {
 		LWIP_DEBUGF(SOCKETS_DEBUG, ("get_socket(%d): invalid\n", s + LWIP_SOCKET_OFFSET));
 		set_errno(EBADF);
 		return NULL;
@@ -419,7 +419,7 @@ static struct lwip_sock *tryget_socket(int s, void *group)
 	struct task_group_s *tgroup = (struct task_group_s *)group;
 
 	s -= LWIP_SOCKET_OFFSET;
-	if ((s < 0) || (s >= CONFIG_NSOCKET_DESCRIPTORS)) {
+	if ((s < 0) || (s >= CONFIG_NBSDSOCKET_DESCRIPTORS)) {
 		return NULL;
 	}
 	slist = &(tgroup->tg_socketlist); // pkbuild
@@ -492,7 +492,7 @@ static int alloc_socket(struct netconn *newconn, int accepted)
 	}
 
 	SYS_ARCH_PROTECT(lev);
-	for (idx = 0; idx < CONFIG_NSOCKET_DESCRIPTORS; ++idx) {
+	for (idx = 0; idx < CONFIG_NBSDSOCKET_DESCRIPTORS; ++idx) {
 		if (!list->sl_sockets[idx].sock) {
 			struct tcb_s *tcb = sched_gettcb(getpid());
 			DEBUGASSERT(tcb && tcb->group);

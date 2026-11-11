@@ -62,7 +62,7 @@
 #include <time.h>
 #include <string.h>
 #include <debug.h>
-#include <queue.h>
+#include <tinyara/queue.h>
 #include <errno.h>
 
 #include <arpa/inet.h>

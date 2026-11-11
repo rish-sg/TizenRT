@@ -23,7 +23,7 @@
 #include <tinyara/config.h>
 
 #include <debug.h>
-#include <queue.h>
+#include <tinyara/queue.h>
 #include <tinyara/wdog.h>
 #include <tinyara/clock.h>
 #include <tinyara/time.h>

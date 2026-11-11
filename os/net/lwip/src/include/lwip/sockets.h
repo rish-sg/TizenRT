@@ -164,7 +164,7 @@ struct lwip_setgetsockopt_data {
 
 #if !defined IOV_MAX
 #define IOV_MAX 0xFFFF
-#elif IOV_MAX > 0xFFFF
+#elif IOV_MAX > INT_MAX /* 12.13 base allows INT_MAX iovecs; lwip truncates iovcnt in practice */
 #error "IOV_MAX larger than supported by lwIP"
 #endif /* IOV_MAX */
 

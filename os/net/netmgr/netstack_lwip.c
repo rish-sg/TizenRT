@@ -398,7 +398,7 @@ static void _netmon_handler(struct tcb_s *tcb, void *arg)
 		assert(0);
 	}
 	struct socketlist *slist = &group->tg_socketlist;
-	for (int fd = 0; fd < CONFIG_NSOCKET_DESCRIPTORS; fd++) {
+	for (int fd = 0; fd < CONFIG_NBSDSOCKET_DESCRIPTORS; fd++) {
 		struct lwip_sock *sock = (struct lwip_sock *)slist->sl_sockets[fd].sock;
 		if (!sock || !sock->conn) {
 			NET_LOGKV(TAG, "fd %d is not assigned socket %p %p\n", fd, sock, sock->conn);
@@ -730,7 +730,7 @@ static int lwip_ns_getstats(void *arg)
 
 static void lwip_ns_initlist(struct socketlist *list)
 {
-	for (int i = 0; i < CONFIG_NSOCKET_DESCRIPTORS; ++i) {
+	for (int i = 0; i < CONFIG_NBSDSOCKET_DESCRIPTORS; ++i) {
 		list->sl_sockets[i].sock = NULL;
 	}
 
@@ -744,7 +744,7 @@ static void lwip_ns_releaselist(struct socketlist *list)
 	int ret;
 	struct lwip_sock *psock;
 
-	for (i = 0; i < CONFIG_NSOCKET_DESCRIPTORS; ++i) {
+	for (i = 0; i < CONFIG_NBSDSOCKET_DESCRIPTORS; ++i) {
 		if (list->sl_sockets[i].sock) {
 
 			psock = (struct lwip_sock *)list->sl_sockets[i].sock;

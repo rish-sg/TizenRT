@@ -93,7 +93,7 @@ struct net_driver_s {
 	 * Must be the first field in the structure due to blink type casting.
 	 */
 
-#if CONFIG_NSOCKET_DESCRIPTORS > 0
+#if CONFIG_NBSDSOCKET_DESCRIPTORS > 0
 	FAR struct net_driver_s *flink;
 
 	/* This is the name of network device assigned when netdev_register was called.

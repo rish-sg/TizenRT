@@ -55,7 +55,7 @@
 #include "chip/esp32_rtc_dac.h"
 
 #include <arch/board/board.h>
-#include <queue.h>
+#include <tinyara/queue.h>
 #include <semaphore.h>
 #include <errno.h>
 #include <tinyara/wdog.h>

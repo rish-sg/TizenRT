@@ -21,7 +21,7 @@
  ****************************************************************************/
 
 #include <tinyara/config.h>
-#if defined(CONFIG_NET_IPv4) && CONFIG_NSOCKET_DESCRIPTORS > 0
+#if defined(CONFIG_NET_IPv4) && CONFIG_NBSDSOCKET_DESCRIPTORS > 0
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -89,4 +89,4 @@ void netlib_freeifaddrs(struct ifaddrs *ifa)
 		cursor = next;
 	}
 }
-#endif //#if defined(CONFIG_NET_IPv4) && CONFIG_NSOCKET_DESCRIPTORS > 0
+#endif //#if defined(CONFIG_NET_IPv4) && CONFIG_NBSDSOCKET_DESCRIPTORS > 0

@@ -36,7 +36,7 @@ static sock_type _get_socktype(int fd)
 {
 	if (fd < CONFIG_NFILE_DESCRIPTORS) {
 		return TR_LWNL;
-	} else if (fd < CONFIG_NFILE_DESCRIPTORS + CONFIG_NSOCKET_DESCRIPTORS) {
+	} else if (fd < CONFIG_NFILE_DESCRIPTORS + CONFIG_NBSDSOCKET_DESCRIPTORS) {
 		return TR_SOCKET;
 	}
 	NET_LOGKE(TAG, "not supported socket type\n");
