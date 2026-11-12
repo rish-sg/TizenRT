@@ -59,6 +59,13 @@
 #include <tinyara/wqueue.h>
 #include <tinyara/kthread.h>
 #include <tinyara/userspace.h>
+#ifdef CONFIG_LOG_DUMP
+#include <tinyara/log_dump/log_dump.h>
+#include <tinyara/log_dump/log_dump_internal.h>
+#endif
+#ifdef CONFIG_COMPRESSION
+#include <tinyara/compression.h>
+#endif
 #include <tinyara/binfmt/binfmt.h>
 
 #ifdef CONFIG_LEGACY_PAGING
@@ -545,6 +552,27 @@ int nx_bringup(void)
 	 */
 
 	nx_workqueues();
+
+#ifdef CONFIG_COMPRESSION
+	/* Create /dev/compress so that applications (e.g. reading back a
+	 * compressed log dump) can decompress data through the driver.
+	 */
+
+	compress_register();
+#endif
+
+#ifdef CONFIG_LOG_DUMP
+	/* Start the log dump thread that stores console logs to a buffer and
+	 * compresses them.
+	 */
+
+	svdbg("Starting log_dump thread\n");
+
+	pid_t pid = kthread_create(LOG_DUMP_NAME, CONFIG_LOG_DUMP_PRIO, LOG_DUMP_STACKSIZE, log_dump, NULL);
+	if (pid < 0) {
+		sdbg("Failed to start log dump\n");
+	}
+#endif
 
 	/* Once the operating system has been initialized, the system must be
 	 * started by spawning the user initialization thread of execution.  This
