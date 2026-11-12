@@ -67,6 +67,9 @@ struct lwnl_open_s {
 	 * for driver events
 	 */
 	FAR struct pollfd *io_fds[LWNL_NPOLLWAITERS];
+	/* The open file of each registered pollfd (12.13 pollfd has no
+	 * filep member, keep the association driver-side) */
+	FAR struct file *io_filep[LWNL_NPOLLWAITERS];
 #endif
 };
 
@@ -167,10 +170,11 @@ static int lwnl_close(struct file *filep)
 	 * If it is, the used slot should be cleared.
 	 * Otherwise, an invalid pollfd remains in a list and this slot is not available forever.
 	 */
-	for (waiter_idx = 0; waiter_idx < LWNL_NPOLLWAITERS; waiter_idx++) {
+		for (waiter_idx = 0; waiter_idx < LWNL_NPOLLWAITERS; waiter_idx++) {
 		struct pollfd *fds = ln_open->io_fds[waiter_idx];
-		if (fds && (FAR struct file *)fds->filep == filep) {
+		if (fds && ln_open->io_filep[waiter_idx] == filep) {
 			ln_open->io_fds[waiter_idx] = NULL;
+			ln_open->io_filep[waiter_idx] = NULL;
 		}
 	}
 #endif
@@ -251,12 +255,14 @@ static int lwnl_poll(FAR struct file *filep, FAR struct pollfd *fds, bool setup)
 
 	/* Are we setting up the poll? Or tearing it down? */
 	if (setup) {
-		/*  Check if any requested events are already in effect */
+	/*  Check if any requested events are already in effect */
 		if (fds->events & POLLIN) {
 			int nready = lwnl_check_queue(filep);
 			if (nready > 0) {
 				fds->revents |= (fds->events & POLLIN);
-				sem_post(fds->sem);
+				if (fds->cb != NULL) {
+					fds->cb(fds);
+				}
 				return 0;
 			}
 		}
@@ -274,7 +280,7 @@ static int lwnl_poll(FAR struct file *filep, FAR struct pollfd *fds, bool setup)
 				/* Bind the poll structure and this slot */
 				ln_open->io_fds[i] = fds;
 				fds->priv = &ln_open->io_fds[i];
-				fds->filep = (void *)filep;
+				ln_open->io_filep[i] = filep;
 				break;
 			}
 		}
@@ -287,13 +293,15 @@ static int lwnl_poll(FAR struct file *filep, FAR struct pollfd *fds, bool setup)
 			goto errout_with_dusem;
 		}
 
-		/* Call lwnl_pollscan again: there could have been events between
+	/* Call lwnl_pollscan again: there could have been events between
 		   the last scan (without us on the list) and putting us on the list! */
 		if (fds->events & POLLIN) {
 			int nready = lwnl_check_queue(filep);
 			if (nready > 0) {
 				fds->revents |= (fds->events & POLLIN);
-				sem_post(fds->sem);
+				if (fds->cb != NULL) {
+					fds->cb(fds);
+				}
 				return 0;
 			}
 		}
@@ -302,7 +310,11 @@ static int lwnl_poll(FAR struct file *filep, FAR struct pollfd *fds, bool setup)
 		FAR struct pollfd **slot = (FAR struct pollfd **)fds->priv;
 
 		/* Remove all memory of the poll setup */
+		int slot_idx = slot - ln_open->io_fds;
 		*slot = NULL;
+		if (slot_idx >= 0 && slot_idx < LWNL_NPOLLWAITERS) {
+			ln_open->io_filep[slot_idx] = NULL;
+		}
 		fds->priv = NULL;
 	}
 
@@ -386,12 +398,11 @@ int lwnl_postmsg(lwnl_dev_type dev, uint32_t evt, void *buffer, int32_t buf_len)
 	LWNLDEV_LOCK(g_lwnl_upper);
 	for (int i = 0; i < LWNL_NPOLLWAITERS; i++) {
 		struct pollfd *fds = g_lwnl_upper->ln_open.io_fds[i];
-		if (fds && (lwnl_get_dev_type(fds->filep) == dev)) {
+		if (fds && (lwnl_get_dev_type(g_lwnl_upper->ln_open.io_filep[i]) == dev)) {
 			fds->revents |= (fds->events & POLLIN);
 			if (fds->revents != 0) {
-				int tres = sem_post(fds->sem);
-				if (tres != 0) {
-					LWNL_LOGE(TAG, "sem post fail %d\n", errno);
+				if (fds->cb != NULL) {
+					fds->cb(fds);
 				}
 			}
 		}

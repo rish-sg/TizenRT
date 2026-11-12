@@ -720,7 +720,7 @@ static int lwip_ns_getstats(void *arg)
 	if (res != 0) {
 		return -ENOTTY;
 	}
-	sched_foreach(_netmon_handler, (void *)logger);
+	nxsched_foreach(_netmon_handler, (void *)logger);
 	netlogger_serialize(logger, &buf);
 	netlogger_deinit(logger);
 	msg->info = buf;

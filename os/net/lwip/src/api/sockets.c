@@ -255,8 +255,8 @@ struct lwip_select_cb {
 	/** semaphore to wake up a task waiting for select */
 	sys_sem_t sem;
 #else
-	/** Pointer to semaphore used post output event */
-	sys_sem_t *poll_sem;
+	/** pollfd of the waiting poll() call; used to wake the poll logic */
+	FAR struct pollfd *poll_fds;
 	/** Pointer to event-set of requested poll events */
 	pollevent_t events;
 	/** socket descriptor value */
@@ -433,7 +433,7 @@ static struct lwip_sock *tryget_socket(int s, void *group)
 
 static struct lwip_sock *tryget_socket_by_pid(int s, pid_t pid)
 {
-	struct tcb_s *tcb = sched_gettcb(pid);
+	struct tcb_s *tcb = nxsched_get_tcb(pid);
 	DEBUGASSERT(tcb && tcb->group);
 
 	return tryget_socket(s, (void *)tcb->group);
@@ -459,7 +459,7 @@ struct lwip_sock *trycheck_selwait_socket(int s, pid_t pid)
 
 static inline void _get_pid_name(pid_t pid, u8_t *buf)
 {
-	if (pthread_getname_np(pid, buf)) {
+	if (pthread_getname_np(pid, (FAR char *)buf, CONFIG_TASK_NAME_SIZE)) {
 		strncpy((char *)buf, "NONE", 5);
 	}
 }
@@ -494,7 +494,7 @@ static int alloc_socket(struct netconn *newconn, int accepted)
 	SYS_ARCH_PROTECT(lev);
 	for (idx = 0; idx < CONFIG_NBSDSOCKET_DESCRIPTORS; ++idx) {
 		if (!list->sl_sockets[idx].sock) {
-			struct tcb_s *tcb = sched_gettcb(getpid());
+			struct tcb_s *tcb = nxsched_get_tcb(getpid());
 			DEBUGASSERT(tcb && tcb->group);
 			newconn->group = (void *)tcb->group;
 			sock->conn = newconn;
@@ -1665,13 +1665,16 @@ static int lwip_poll_setup(int fd, struct lwip_sock *sock, struct pollfd *fds)
 	}
 #endif
 	SYS_ARCH_DECL_PROTECT(lev);
-	fds->scb = NULL;
+	fds->priv = NULL;
 	nready = lwip_poll_scan(fd, sock, fds);
 
 	/* Check if any requested events are already in effect */
 	if (nready > 0 && fds->revents != 0) {
-		/* Yes.. then signal the poll logic */
-		sys_sem_signal(fds->sem);
+		/* Yes.. then wake up the poll logic via its callback */
+
+		if (fds->cb != NULL) {
+			fds->cb(fds);
+		}
 		return 0;
 	}
 
@@ -1684,12 +1687,12 @@ static int lwip_poll_setup(int fd, struct lwip_sock *sock, struct pollfd *fds)
 
 	memset(select_cb, 0, scb_size);
 
-	/* None ready: add our semaphore to list: */
+	/* None ready: add our list entry: */
 
 	select_cb->next = NULL;
 	select_cb->prev = NULL;
 	select_cb->sem_signalled = 0;
-	select_cb->poll_sem = fds->sem;
+	select_cb->poll_fds = fds;
 	select_cb->events = fds->events;
 	select_cb->sfd = fd;
 
@@ -1702,7 +1705,7 @@ static int lwip_poll_setup(int fd, struct lwip_sock *sock, struct pollfd *fds)
 		select_cb_list->prev = select_cb;
 	}
 
-	fds->scb = (void *)select_cb;
+	fds->priv = (void *)select_cb;
 	select_cb_list = select_cb;
 
 	/* Increasing this counter tells event_callback that the list has changed. */
@@ -1720,9 +1723,11 @@ static int lwip_poll_setup(int fd, struct lwip_sock *sock, struct pollfd *fds)
 
 	/* Check if any requested events are already in effect */
 	if (nready > 0 && fds->revents != 0) {
-		/* Yes.. then signal the poll logic */
+		/* Yes.. then wake up the poll logic via its callback */
 
-		sys_sem_signal(fds->sem);
+		if (fds->cb != NULL) {
+			fds->cb(fds);
+		}
 	}
 
 	return 0;
@@ -1733,7 +1738,7 @@ static int lwip_poll_teardown(int fd, struct lwip_sock *sock, struct pollfd *fds
 	struct lwip_select_cb *select_cb = NULL;
 	SYS_ARCH_DECL_PROTECT(lev);
 
-	select_cb = (struct lwip_select_cb *)fds->scb;
+	select_cb = (struct lwip_select_cb *)fds->priv;
 
 	SYS_ARCH_PROTECT(lev);
 	if (sock->select_waiting > 0) {
@@ -1944,7 +1949,12 @@ again:
 #if LWIP_SELECT
 				sys_sem_signal(&scb->sem);
 #else
-				sys_sem_signal(scb->poll_sem);
+				/* Wake the poll() waiter through the pollfd callback
+				 * installed by the poll logic (fs_poll). */
+
+				if (scb->poll_fds != NULL && scb->poll_fds->cb != NULL) {
+					scb->poll_fds->cb(scb->poll_fds);
+				}
 #endif
 			}
 		}
@@ -3034,7 +3044,7 @@ static void lwip_socket_drop_registered_memberships(struct lwip_sock *sock)
 
 struct lwip_sock *get_socket_by_pid(int s, pid_t pid)
 {
-	struct tcb_s *tcb = sched_gettcb(pid);
+	struct tcb_s *tcb = nxsched_get_tcb(pid);
 	DEBUGASSERT(tcb && tcb->group);
 
 	return get_socket(s, (void *)tcb->group);

@@ -458,7 +458,7 @@ err_t sys_sem_new(sys_sem_t *sem, u8_t count)
  *---------------------------------------------------------------------------*/
 u32_t sys_arch_sem_wait(sys_sem_t *sem, u32_t timeout)
 {
-	clock_t start = clock_systimer();
+	clock_t start = clock_systime_ticks();
 	int status = OK;
 	int remaining_time;
 
@@ -477,7 +477,7 @@ u32_t sys_arch_sem_wait(sys_sem_t *sem, u32_t timeout)
 		status = OK;
 	} else {
 		remaining_time = timeout;
-		while ((status = sem_tickwait(sem, clock_systimer(), MSEC2TICK(remaining_time))) != OK) {
+		while ((status = nxsem_tickwait(sem, MSEC2TICK(remaining_time))) != OK) {
 			/* Handle the special case where the semaphore wait was
 			 * awakened by the receipt of a signal.
 			 * Restart If signal is EINTR else break if ETIMEDOUT
@@ -491,14 +491,14 @@ u32_t sys_arch_sem_wait(sys_sem_t *sem, u32_t timeout)
 				return SYS_ARCH_CANCELED;
 			} else {
 				/* calculate remaining timeout */
-				remaining_time -= TICK2MSEC(clock_systimer() - start);
+				remaining_time -= TICK2MSEC(clock_systime_ticks() - start);
 				if (remaining_time < MSEC_PER_TICK) {
 					return SYS_ARCH_TIMEOUT;
 				}
 			}
 		}
 	}
-	clock_t end = clock_systimer();
+	clock_t end = clock_systime_ticks();
 	return TICK2MSEC(end - start);
 }
 
@@ -642,7 +642,7 @@ void sys_mutex_unlock(sys_mutex_t *mutex)
 
 u32_t sys_now(void)
 {
-	return TICK2MSEC(clock_systimer());
+	return TICK2MSEC(clock_systime_ticks());
 }
 
 /*---------------------------------------------------------------------------*
@@ -705,7 +705,9 @@ sys_thread_t sys_kernel_thread_new(const char *name, lwip_thread_fn entry_functi
 
 	if (s_nextthread < SYS_THREAD_MAX) {
 		sys_thread_t new_thread;
-		new_thread = kernel_thread(name, priority, stacksize, (main_t) entry_function, (char *const *)NULL);
+		new_thread = nxtask_create(name, priority, NULL, stacksize,
+					   (main_t) entry_function,
+					   (char *const *)NULL, NULL);
 		if (new_thread < 0) {
 			int errval = errno;
 			LWIP_DEBUGF(SYS_DEBUG, ("Failed to create new_thread: %d", errval));

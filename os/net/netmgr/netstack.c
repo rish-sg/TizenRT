@@ -34,13 +34,13 @@ extern struct netstack *get_netstack_netlink(void);
 
 static sock_type _get_socktype(int fd)
 {
-	if (fd < CONFIG_NFILE_DESCRIPTORS) {
-		return TR_LWNL;
-	} else if (fd < CONFIG_NFILE_DESCRIPTORS + CONFIG_NBSDSOCKET_DESCRIPTORS) {
-		return TR_SOCKET;
-	}
-	NET_LOGKE(TAG, "not supported socket type\n");
-	return TR_UNKNOWN;
+	/* The 12.13 descriptor model removed the static file-descriptor
+	 * boundary that used to separate LWNL from BSD sockets; file and
+	 * socket descriptors now live in separate dynamic spaces.  With
+	 * LWNL80211 disabled every fd handled here is a lwip socket. */
+
+	(void)fd;
+	return TR_SOCKET;
 }
 
 struct netstack *get_netstack(sock_type type)

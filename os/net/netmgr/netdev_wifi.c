@@ -378,8 +378,9 @@ int trwifi_run_handler(void)
 	}
 
 	sys_thread_t tid;
-	tid = kernel_thread("netmgr_event_handler", NETMGR_EVTHANDLER_PRIO,
-						NETMGR_EVTHANDLER_STACKSIZE, _trwifi_event_handler, NULL);
+	tid = nxtask_create("netmgr_event_handler", NETMGR_EVTHANDLER_PRIO,
+						NULL, NETMGR_EVTHANDLER_STACKSIZE,
+						(main_t)_trwifi_event_handler, NULL, NULL);
 	if (tid == ERROR) {
 		NET_LOGKE(TAG, "critical error %d\n", errno);
 		return -2;
