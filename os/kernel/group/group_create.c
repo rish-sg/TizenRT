@@ -51,6 +51,9 @@
 #include <tinyara/irq.h>
 #include <tinyara/fs/fs.h>
 #include <tinyara/kmalloc.h>
+#if defined(CONFIG_NET) && CONFIG_NBSDSOCKET_DESCRIPTORS > 0
+#  include <tinyara/net/net.h>
+#endif
 #include <tinyara/semaphore.h>
 #include <tinyara/sched.h>
 
@@ -185,6 +188,14 @@ int group_allocate(FAR struct tcb_s *tcb, uint8_t ttype)
 	/* Initialize file descriptors for the TCB */
 
 	fdlist_init(&group->tg_fdlist);
+
+#if defined(CONFIG_NET) && CONFIG_NBSDSOCKET_DESCRIPTORS > 0
+	/* Initialize the BSD socket descriptors list of the group.  For the
+	 * shared kernel-thread group this runs only on the first allocation.
+	 */
+
+	net_initlist(&group->tg_socketlist);
+#endif
 
 	/* Alloc task info for group  */
 

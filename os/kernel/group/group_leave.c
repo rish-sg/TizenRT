@@ -121,6 +121,12 @@ static inline void group_release(FAR struct task_group_s *group)
 
 	fdlist_free(&group->tg_fdlist);
 
+#if defined(CONFIG_NET) && CONFIG_NBSDSOCKET_DESCRIPTORS > 0
+	/* Release the BSD socket descriptors list */
+
+	net_releaselist(&group->tg_socketlist);
+#endif
+
 	/* Release all shared environment variables */
 
 	env_release(group);

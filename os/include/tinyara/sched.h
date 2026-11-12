@@ -64,6 +64,9 @@
 #include <tinyara/queue.h>
 #include <tinyara/wdog.h>
 #include <tinyara/fs/fs.h>
+#if defined(CONFIG_NET) && CONFIG_NBSDSOCKET_DESCRIPTORS > 0
+#  include <tinyara/net/net.h>
+#endif
 #include <tinyara/mm/map.h>
 #include <tinyara/tls.h>
 #include <tinyara/spinlock_type.h>
@@ -556,6 +559,10 @@ struct task_group_s {
 
 	struct fdlist tg_fdlist;          /* Maps file descriptor to file         */
 
+#if defined(CONFIG_NET) && CONFIG_NBSDSOCKET_DESCRIPTORS > 0
+	struct socketlist tg_socketlist;  /* Maps BSD socket desc to socket       */
+#endif
+
 	/* Virtual memory mapping info ********************************************/
 
 	struct mm_map_s tg_mm_map;        /* Task group virtual memory mappings   */
@@ -957,6 +964,26 @@ FAR struct fdlist *nxsched_get_fdlist_from_tcb(FAR struct tcb_s *tcb);
  ****************************************************************************/
 
 FAR struct fdlist *nxsched_get_fdlist(void);
+
+#if defined(CONFIG_NET) && CONFIG_NBSDSOCKET_DESCRIPTORS > 0
+/****************************************************************************
+ * Name: sched_getsockets
+ *
+ * Description:
+ *   Return a pointer to the BSD socket list for this thread.
+ *
+ * Input Parameters:
+ *   None
+ *
+ * Returned Value:
+ *   A pointer to the BSD socket list of the calling task's group.
+ *
+ * Assumptions:
+ *
+ ****************************************************************************/
+
+FAR struct socketlist *sched_getsockets(void);
+#endif
 
 /****************************************************************************
  * Name: nxtask_init
