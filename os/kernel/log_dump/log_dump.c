@@ -36,10 +36,13 @@
 #include <debug.h>
 #include <assert.h>
 
+#include <tinyara/mqueue.h>
 #include <tinyara/queue.h>
 #include <tinyara/clock.h>
 #include <tinyara/log_dump/log_dump.h>
 #include <tinyara/log_dump/log_dump_internal.h>
+#include <syslog.h>
+#include <time.h>
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -66,10 +69,16 @@
 
 #define LOG_CHUNK_SIZE			sizeof(struct log_dump_chunk_s)
 
-#define LOG_DUMP_COMP_CHECK_RETRY_USEC		10000	/* 10ms */
-#ifdef CONFIG_LOG_DUMP_DEBUG_DETECT_HANG
-#define LOG_DUMP_COMP_CHECK_RETRY_CNT 		(CONFIG_LOG_DUMP_HANG_CHECK_SEC * USEC_PER_SEC / LOG_DUMP_COMP_CHECK_RETRY_USEC)
-#endif
+/* A live syslog notice is emitted at most once per this many dropped
+ * characters (the gap marker in the captured stream is emitted per burst
+ * regardless of this limit).
+ */
+#define LOG_DUMP_DROP_NOTICE_MIN_DROPS	4096
+/* Bounded wait for the compress thread to finish the partially filled
+ * block on a read/stop request. The wait never blocks the console path;
+ * this only protects the reader task from an unbounded stall.
+ */
+#define LOG_DUMP_LASTBLOCK_TIMEOUT_SEC	5
 
 static bool is_started_to_save;
 
@@ -95,7 +104,9 @@ struct log_dump_chunk_s {
 /****************************************************************************
  * Private Variables
  ****************************************************************************/
-static mqd_t mq_fd;
+static struct file mq_send_file;	/* producer side: O_NONBLOCK, mq_send never blocks */
+static struct file mq_recv_file;	/* compress thread side: blocking mq_receive */
+static bool log_dump_mq_ready;
 static sq_queue_t log_dump_chunks;	/* queue for holding the logs */
 static int compress_curbytes = 0;	/* number of bytes in the current chunk that were filled */
 static int compress_rdptr = 0;		/* current pointer for compressed data read */
@@ -105,14 +116,18 @@ static int log_dump_chunk_node_cnt;
 static unsigned char uncomp_buf[CONFIG_LOG_DUMP_NUMBUFS][CONFIG_LOG_DUMP_CHUNK_SIZE];	/* initial uncompressed log dump data */
 static bool uncomp_buf_full[CONFIG_LOG_DUMP_NUMBUFS];
 static int uncomp_idx = 0;
-static int comp_idx = 0;
-static int uncomp_curbytes = 0;
+static int uncomp_curbytes[CONFIG_LOG_DUMP_NUMBUFS];	/* per-slot write cursor */
 static char comp_size[LOG_DUMP_COMPRESS_NODESZ];
 static bool set_comp_head = false;
 static size_t writesize = CONFIG_LOG_DUMP_CHUNK_SIZE;
 static unsigned char *out_buf;
-static bool compress_full_block;	/* indicate completion of complete block compression */
 static int compress_ret;
+static int comp_scan_idx;		/* compress thread round-robin slot scan index */
+static uint32_t log_dump_drops_pending;	/* chars dropped since the last gap marker */
+static uint32_t log_dump_drops_total;	/* lifetime count of dropped chars */
+static uint32_t log_dump_notice_mark;	/* drops_total value at the last live notice */
+static volatile bool gap_notice_active;	/* recursion guard for the live notice */
+static sem_t lastblock_sem;		/* signals completion of the partial-block compression */
 #ifdef CONFIG_DEBUG_MM_HEAPINFO
 static pid_t g_log_dump_pid;		/* PID of log_dump kernel thread */
 #endif
@@ -164,10 +179,11 @@ int log_dump_init(void)
 
 	for (int i = 0; i < CONFIG_LOG_DUMP_NUMBUFS; i++) {
 		uncomp_buf_full[i] = false;
+		uncomp_curbytes[i] = 0;
 	}
 
 	uncomp_idx = 0;
-	comp_idx = 0;
+	comp_scan_idx = 0;
 	compress_curbytes = 0;
 	compress_rdptr = 0;
 	log_dump_chunk_node_cnt = 0;
@@ -177,6 +193,7 @@ int log_dump_init(void)
 	/* Initialize to save the log by default */
 	is_started_to_save = true;
 	last_comp_block_size = 0;
+	nxsem_init(&lastblock_sem, 0, 0);
 
 	return LOG_DUMP_OK;
 
@@ -192,27 +209,38 @@ exit_with_node:
 int log_dump_read_wake(void)
 {
 	compress_last_block = true;
-	int ret;
-	int msg_compress = true;
-	ret = mq_send(mq_fd, (const char *)&msg_compress, sizeof(int), 100);
-	if (ret < 0) {
-		ldpdbg("failed mq_send ret = %d\n", ret);
+	/* Drain any stale completion credit from a previously timed-out wait */
+	while (nxsem_trywait(&lastblock_sem) == 0);
+
+	if (!log_dump_mq_ready) {
 		return ERROR;
 	}
 
-	/* wait for the completion of the partially filled block compression */
-#ifdef CONFIG_LOG_DUMP_DEBUG_DETECT_HANG
-	int hang_check_count = 0;
-#endif
-	while (compress_last_block) {
-		usleep(LOG_DUMP_COMP_CHECK_RETRY_USEC);
-#ifdef CONFIG_LOG_DUMP_DEBUG_DETECT_HANG
-		hang_check_count++;
-		if (hang_check_count > LOG_DUMP_COMP_CHECK_RETRY_CNT) {
-			ldplldbg("Compression failed for %d seconds, The device hang is suspected.\n", CONFIG_LOG_DUMP_HANG_CHECK_SEC);
-			DEBUGPANIC();
+	int ret;
+	int msg_compress = true;
+	/* Kernel-internal, fd-free send: an mqd_t-based mq_send() would resolve
+	 * the descriptor in the calling task's own fd list, which never contains
+	 * the queue opened by the log_dump kernel thread. */
+	ret = file_mq_send(&mq_send_file, (const char *)&msg_compress, sizeof(int), 100);
+	if (ret < 0) {
+		ldpdbg("failed mq_send ret = %d\n", -ret);
+		return ERROR;
+	}
+
+	/* Bounded wait for the compress thread to finish the partially filled
+ * block. The compress thread may legitimately be waiting for the kernel
+ * heap; a bounded wait keeps this call from hanging forever. The wait
+ * never runs on the console write path.
+ */
+ {
+		struct timespec ts;
+		clock_gettime(CLOCK_REALTIME, &ts);
+		ts.tv_sec += LOG_DUMP_LASTBLOCK_TIMEOUT_SEC;
+		if (nxsem_timedwait(&lastblock_sem, &ts) < 0) {
+			ldpdbg("timed out waiting for last block compression\n");
+			compress_last_block = false;
+			return ERROR;
 		}
-#endif
 	}
 
 	return 0;
@@ -236,7 +264,15 @@ int log_dump_compress_lastblock(void)
 
 	last_comp_block_size = CONFIG_LOG_DUMP_CHUNK_SIZE;
 
-	compress_ret = compress_block(&last_comp_block[4],&last_comp_block_size,  (unsigned char *)uncomp_buf[uncomp_idx], uncomp_curbytes);
+	/* Snapshot the partially filled active slot so that the console writer
+ * is never stalled or raced while the block is compressed.
+ */
+	irqstate_t flags = enter_critical_section();
+	int partial = uncomp_curbytes[uncomp_idx];
+	memcpy(out_buf, uncomp_buf[uncomp_idx], partial);
+	leave_critical_section(flags);
+
+	compress_ret = compress_block(&last_comp_block[4], &last_comp_block_size, (unsigned char *)out_buf, partial);
 
 	if (compress_ret != LOG_DUMP_OK) {
 		last_comp_block_size = 0;
@@ -387,103 +423,116 @@ static int log_dump_tobuffer(char ch, size_t *free_size)
 	return LOG_DUMP_OK;
 }
 
-static int compress_full_bufs(void)
+/* Name: log_dump_inject_active
+ *
+ * Append diagnostic text to the active uncompressed slot so that it
+ * flows through the normal compression stream right before the next
+ * captured console bytes. Never blocks: silently skipped (or truncated)
+ * when the slot is full.
+ ****************************************************************************/
+static void log_dump_inject_active(FAR const char *text, int len)
 {
-	int ret = 0;
-	int comp_finish = false;
-	int i = uncomp_idx + 1;
-	if (i == CONFIG_LOG_DUMP_NUMBUFS) {
-		i = 0;
+	irqstate_t flags = enter_critical_section();
+
+	if (!uncomp_buf_full[uncomp_idx]) {
+		for (int i = 0; i < len; i++) {
+			if (uncomp_curbytes[uncomp_idx] == CONFIG_LOG_DUMP_CHUNK_SIZE) {
+				break;
+			}
+			uncomp_buf[uncomp_idx][uncomp_curbytes[uncomp_idx]] = text[i];
+			uncomp_curbytes[uncomp_idx]++;
+		}
 	}
 
-	comp_finish = (i == uncomp_idx);
-	while (!comp_finish) {
-		if (i == uncomp_idx) {
-			comp_finish = true;
+	leave_critical_section(flags);
+}
+
+/* Name: log_dump_flush_drops
+ *
+ * Account for characters dropped because all staging buffers were
+ * waiting for compression: place a gap marker into the captured stream
+ * and emit a rate-limited notice. Called from the compress thread only;
+ * the marker goes through the normal compression stream, so the reader
+ * needs no format change.
+ ****************************************************************************/
+static void log_dump_flush_drops(void)
+{
+	uint32_t dropped = log_dump_drops_pending;
+
+	if (dropped == 0) {
+		return;
+	}
+	log_dump_drops_pending = 0;
+
+	char marker[48];
+	int len = snprintf(marker, sizeof(marker), "\n[log_dump: %lu bytes dropped]\n", (unsigned long)dropped);
+	log_dump_inject_active(marker, len);
+
+	/* Rate-limited live notice. The notice itself flows back through the
+ * console hook, so guard against re-entrancy.
+ */
+	if (!gap_notice_active &&
+	    (log_dump_notice_mark == 0 ||
+	     log_dump_drops_total - log_dump_notice_mark >= LOG_DUMP_DROP_NOTICE_MIN_DROPS)) {
+		gap_notice_active = true;
+		syslog(LOG_ERR, "log_dump: console capture dropped %lu bytes (compress thread cannot keep up)\n", (unsigned long)log_dump_drops_total);
+		log_dump_notice_mark = log_dump_drops_total;
+		gap_notice_active = false;
+	}
+}
+/* Name: log_dump_compress_ready_slots
+ *
+ * Compress-thread side: compress every full staging slot, push the
+ * compressed stream into the final chunk list, report dropped-character
+ * gaps and release the slots back to the console writer. Everything that
+ * can block (compression allocations, kmm_malloc/kmm_mallinfo inside
+ * log_dump_tobuffer) runs here and never in the console write path.
+ ****************************************************************************/
+static int log_dump_compress_ready_slots(void)
+{
+	int ret = LOG_DUMP_OK;
+
+	for (int n = 0; n < CONFIG_LOG_DUMP_NUMBUFS; n++) {
+		int i = comp_scan_idx++;
+		if (comp_scan_idx == CONFIG_LOG_DUMP_NUMBUFS) {
+			comp_scan_idx = 0;
 		}
 
 		if (!uncomp_buf_full[i]) {
-			i++;
-			if (i == CONFIG_LOG_DUMP_NUMBUFS) {
-				i = 0;
-			}
 			continue;
 		}
 
-		irqstate_t flags = enter_critical_section();
-		/* If kernel heap is locked we cannot allocate new buffers.
-		 * Also, we cannot perform compress operation, since the compression
-		 * code internally tries to allocate memory. So, we will just ignore
-		 * the log data until the kernel heap lock is released.
-		 */
-		if (kmm_is_locked()) {
-			leave_critical_section(flags);
-			return LOG_DUMP_MEM_FAIL;
-		}
+		writesize = CONFIG_LOG_DUMP_CHUNK_SIZE;
+		compress_ret = compress_block(out_buf, (long unsigned int *)&writesize, (unsigned char *)uncomp_buf[i], CONFIG_LOG_DUMP_CHUNK_SIZE);
+		if (compress_ret != LOG_DUMP_OK) {
+			ldpdbg("Fail to compress compress_ret = %d\n", compress_ret);
+		} else {
+			size_t free_size = 0;
+			int store_ret = LOG_DUMP_OK;
 
-		size_t free_size = 0;
-		int msg_compress = false;
-		/* compress the block, add it to the nodes, reset the uncomp_buf */
-		set_comp_head = true;
-		compress_full_block = true;
-		comp_idx = i;
-
-		mq_send(mq_fd, (const char *)&msg_compress, sizeof(int), 100);
-		leave_critical_section(flags);
-
-		/* wait for completion of the current full block compression */
-#ifdef CONFIG_LOG_DUMP_DEBUG_DETECT_HANG
-		int hang_check_count = 0;
-#endif
-		while (compress_full_block) {
-			usleep(LOG_DUMP_COMP_CHECK_RETRY_USEC);
-#ifdef CONFIG_LOG_DUMP_DEBUG_DETECT_HANG
-			hang_check_count++;
-			if (hang_check_count > LOG_DUMP_COMP_CHECK_RETRY_CNT) {
-				ldplldbg("Compression failed for %d seconds, The device hang is suspected.\n", CONFIG_LOG_DUMP_HANG_CHECK_SEC);
-				DEBUGPANIC();
+			snprintf(comp_size, LOG_DUMP_COMPRESS_NODESZ, "%04d", writesize);
+			for (int m = 0; m < LOG_DUMP_COMPRESS_NODESZ - 1 && store_ret >= 0; m++) {
+				store_ret = log_dump_tobuffer(comp_size[m], &free_size);
 			}
-#endif
-		}
-
-		if (compress_ret < 0) {
-			ldpdbg("Fail to compress ret = %d\n", compress_ret);
-			return compress_ret;
-		}
-		snprintf(comp_size, LOG_DUMP_COMPRESS_NODESZ, "%04d", writesize);
-		for (int m = 0; m < LOG_DUMP_COMPRESS_NODESZ - 1; m++) {
-			ret = log_dump_tobuffer(comp_size[m], &free_size);
-			if (ret < 0) {
-				return ret;
-			} else if (ret == LOG_DUMP_OK_HEAPCHK) {
-				char fsz_array[LOG_DUMP_STRLEN_FREEHEAP];	/* For Free heap memory string */
-				snprintf(fsz_array, sizeof(size_t), "<fsz:%08d>", free_size);
-				for (int n = 0; n < sizeof(fsz_array); n++) {
-					uncomp_buf[uncomp_idx][uncomp_curbytes++] = fsz_array[n];
-				}
+			for (int write_idx = 0; write_idx < writesize && store_ret >= 0; write_idx++) {
+				store_ret = log_dump_tobuffer(out_buf[write_idx], &free_size);
+			}
+			if (store_ret < 0) {
+				ldpdbg("Fail to store compressed log ret = %d\n", store_ret);
+			} else if (store_ret == LOG_DUMP_OK_HEAPCHK) {
+				/* Preserve upstream behavior: record the free heap size in the
+				 * active staging slot, to be compressed with the next chunk.
+					*/
+				char fsz_array[LOG_DUMP_STRLEN_FREEHEAP];
+				snprintf(fsz_array, sizeof(fsz_array), "<fsz:%08d>", (unsigned int)free_size);
+				log_dump_inject_active(fsz_array, strlen(fsz_array));
 			}
 		}
 
-		for (int write_idx = 0; write_idx < writesize; write_idx++) {
-			ret = log_dump_tobuffer(out_buf[write_idx], &free_size);
-			if (ret < 0) {
-				return ret;
-			}
-			if (ret == LOG_DUMP_OK_HEAPCHK) {
-				char fsz_array[LOG_DUMP_STRLEN_FREEHEAP];	/* For Free heap memory string */
-				snprintf(fsz_array, sizeof(size_t), "<fsz:%08d>", free_size);
-				for (int fsz_idx = 0; fsz_idx < sizeof(fsz_array); fsz_idx++) {
-					uncomp_buf[uncomp_idx][uncomp_curbytes++] = fsz_array[fsz_idx];
-				}
-			}
-		}
-
+		log_dump_flush_drops();
 		uncomp_buf_full[i] = false;
-		i++;
-		if (i == CONFIG_LOG_DUMP_NUMBUFS) {
-			i = 0;
-		}
 	}
+
 	return ret;
 }
 
@@ -493,44 +542,49 @@ int log_dump_save(char ch)
 		return LOG_DUMP_OK;
 	}
 
-	/* If the uncompress buffer is already full and not released because
-	 * the compression is blocked by kernel heap lock, then we will not
-	 * accept any more data into the uncompress buffer.
-	 */
-	if (!uncomp_buf_full[uncomp_idx]) {
-		uncomp_buf[uncomp_idx][uncomp_curbytes] = ch;
-		uncomp_curbytes++;
-		if (uncomp_curbytes == CONFIG_LOG_DUMP_CHUNK_SIZE) {
-			uncomp_curbytes = 0;	/* reset */
-			uncomp_buf_full[uncomp_idx] = true;
-			int temp = uncomp_idx++;
-			if (uncomp_idx == CONFIG_LOG_DUMP_NUMBUFS) {
-				uncomp_idx = 0;
-			}
-			if (uncomp_buf_full[uncomp_idx]) {
-				uncomp_idx = temp;
-			}
+	irqstate_t flags = enter_critical_section();
 
-			/* If the current thread priority is greater than the compress thread
-			 * priority, then there will be a lockup since both threads cannot proceed. 
-			 * So, in this case, we will return without performing the compression.
-			 */
-			if (nxsched_self()->sched_priority > CONFIG_LOG_DUMP_PRIO || sched_lockcount()) {
-				return LOG_DUMP_FAIL;
-			}
-
-			return compress_full_bufs();
-		}
+	if (uncomp_buf_full[uncomp_idx]) {
+		/* All staging buffers are still waiting for compression: drop the
+ * character instead of ever blocking the console write path. The
+ * drop is reported by the compress thread (gap marker + rate-limited
+ * notice) when a slot frees up.
+ */
+		log_dump_drops_pending++;
+		log_dump_drops_total++;
+		leave_critical_section(flags);
+		return LOG_DUMP_FAIL;
 	}
-	else {
-		// This else statement is entered only when enitre uncompressed buffer is full.
-		// If compression is available, compress the entire uncompressed buffer.
-		// Otherwise, discard the character.
-		if (nxsched_self()->sched_priority > CONFIG_LOG_DUMP_PRIO || sched_lockcount() || kmm_is_locked()) {
-			return LOG_DUMP_FAIL;
-		}
 
-		return compress_full_bufs();
+	uncomp_buf[uncomp_idx][uncomp_curbytes[uncomp_idx]] = ch;
+	uncomp_curbytes[uncomp_idx]++;
+
+	bool kick = false;
+	if (uncomp_curbytes[uncomp_idx] == CONFIG_LOG_DUMP_CHUNK_SIZE) {
+		uncomp_curbytes[uncomp_idx] = 0;
+		uncomp_buf_full[uncomp_idx] = true;
+		int temp = uncomp_idx++;
+		if (uncomp_idx == CONFIG_LOG_DUMP_NUMBUFS) {
+			uncomp_idx = 0;
+		}
+		if (uncomp_buf_full[uncomp_idx]) {
+			/* next slot still pending compression: characters drop until it
+ * is released by the compress thread
+ */
+			uncomp_idx = temp;
+		}
+		kick = true;
+	}
+
+	leave_critical_section(flags);
+
+	if (kick && log_dump_mq_ready) {
+		/* Non-blocking wake-up of the compress thread. The send file object is
+ * opened O_NONBLOCK; a full queue only means the thread is behind,
+ * and the slot stays marked full for a later kick.
+ */
+		int msg_compress = false;
+		file_mq_send(&mq_send_file, (const char *)&msg_compress, sizeof(int), 100);
 	}
 
 	return LOG_DUMP_OK;
@@ -608,6 +662,7 @@ void log_dump_initialize(void)
 int log_dump(int argc, char *argv[])
 {
 	struct mq_attr attr;
+	int ret;
 
 	attr.mq_maxmsg = 32;
 	attr.mq_msgsize = sizeof(int);
@@ -618,39 +673,61 @@ int log_dump(int argc, char *argv[])
 	g_log_dump_pid = getpid();
 #endif
 
-	/* Create log dump message queue */
-	mq_fd = mq_open(LOG_DUMP_MSGQ, O_RDWR | O_CREAT, 0666, &attr);
-	if (mq_fd == (mqd_t)ERROR) {
-		ldpdbg("Fail to open mq, errno %d. EXIT!\n", errno);
+	/* Open the message queue with two separate file objects.
+	 *
+	 * An mqd_t is a per-task-group fd-table index; a queue opened by this
+	 * kernel thread is not resolvable from the producer tasks (serial write
+	 * path, /proc/logsave clients), so the fd-based mq_send()/mq_receive()
+	 * must not be used here. file_mq_open() hands back a struct file that is
+	 * valid in every context, and O_NONBLOCK is per-file-object:
+	 *
+	 *  - mq_recv_file: opened without O_NONBLOCK; file_mq_receive() blocks
+	 *    when the queue is empty, so the compress thread sleeps (visible as
+	 *    MQNEMPTY in ps) instead of spinning.
+	 *  - mq_send_file: opened with O_NONBLOCK; producers on the console
+	 *    write path never sleep on a full queue - a full queue only means
+	 *    the compress thread is behind, and the slot stays marked full
+	 *    for a later kick.
+	 */
+	ret = file_mq_open(&mq_recv_file, LOG_DUMP_MSGQ, O_RDONLY | O_CREAT, 0666, &attr);
+	if (ret < 0) {
+		ldpdbg("Fail to open mq, errno %d. EXIT!\n", -ret);
+		return 0;
+	}
+
+	ret = file_mq_open(&mq_send_file, LOG_DUMP_MSGQ, O_WRONLY | O_NONBLOCK);
+	if (ret < 0) {
+		ldpdbg("Fail to open send mq, errno %d. EXIT!\n", -ret);
+		file_mq_close(&mq_recv_file);
 		return 0;
 	}
 
 	if (log_dump_init() != LOG_DUMP_OK) {
 		ldpdbg("Fail to init log dump\n");
-		mq_close(mq_fd);
+		file_mq_close(&mq_recv_file);
+		file_mq_close(&mq_send_file);
 		return 0;
 	}
+
+	log_dump_mq_ready = true;
 
 	int msg_compress;
 	int nbytes;
 
 	while (true) {
-		nbytes = mq_receive(mq_fd, (char *)&msg_compress, sizeof(int), NULL);
+		nbytes = file_mq_receive(&mq_recv_file, (char *)&msg_compress, sizeof(int), NULL);
 		if (nbytes <= 0) {
+			/* Interrupted or transient error; keep waiting for work */
 			continue;
 		}
 		if (msg_compress) {
 			/* To compress last partially filled block during app read*/
 			log_dump_compress_lastblock();
 			compress_last_block = false;
+			nxsem_post(&lastblock_sem);
 		} else {
-			/* compress the completely filled block */
-			writesize = CONFIG_LOG_DUMP_CHUNK_SIZE;
-			compress_ret = compress_block(out_buf,  (long unsigned int *)&writesize,  (unsigned char *)uncomp_buf[comp_idx], CONFIG_LOG_DUMP_CHUNK_SIZE);
-			if (compress_ret != LOG_DUMP_OK) {
-				ldpdbg("Fail to compress compress_ret = %d\n", compress_ret);
-			}
-			compress_full_block = false;
+			/* compress every completely filled staging slot */
+			log_dump_compress_ready_slots();
 		}
 	}
 }
