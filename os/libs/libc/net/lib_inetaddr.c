@@ -61,13 +61,13 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 
-/* u8_t: provided via 12.13 header chain */
-/* u32_t: provided via 12.13 header chain */
+/* u32_t/u8_t: use standard stdint types; the 12.13 lwip typedef chain is
+ * not reliably visible to the libc build for all configurations. */
 
 /** 255.255.255.255 */
-#define IPADDR_NONE         ((u32_t)0xffffffffUL)
+#define IPADDR_NONE         ((uint32_t)0xffffffffUL)
 
-#define in_range(c, lo, up)  ((u8_t)c >= lo && (u8_t)c <= up)
+#define in_range(c, lo, up)  ((uint8_t)c >= lo && (uint8_t)c <= up)
 #define isdigit(c)           in_range(c, '0', '9')
 
 /****************************************************************************
