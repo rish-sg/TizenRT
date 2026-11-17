@@ -62,6 +62,9 @@
 #ifdef CONFIG_LOG_DUMP
 #include <tinyara/log_dump/log_dump_internal.h>
 #endif
+#ifdef CONFIG_MESSAGING_IPC
+#include "messaging/message_ctrl.h"
+#endif
 #include <tinyara/binfmt/binfmt.h>
 #ifdef CONFIG_NET
 #include <tinyara/net/net.h>
@@ -565,6 +568,12 @@ int nx_bringup(void)
 	 */
 
 	nx_workqueues();
+
+#ifdef CONFIG_MESSAGING_IPC
+	/* Initialize the messaging framework's port list */
+
+	messaging_initialize();
+#endif
 
 #ifdef CONFIG_LOG_DUMP
 	log_dump_initialize();

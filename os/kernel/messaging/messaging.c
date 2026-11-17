@@ -361,7 +361,7 @@ int messaging_remove_list(char *port_name)
 
 			if (port_node->nreceiver == 0) {
 				sem_wait(&port_list_sem);
-				(void)sq_rem((FAR sq_entry_t *)port_node, &g_port_node_list);
+				sq_rem((FAR sq_entry_t *)port_node, &g_port_node_list);
 				sem_post(&port_list_sem);
 				kmm_free(port_node);
 			}

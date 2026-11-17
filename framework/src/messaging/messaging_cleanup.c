@@ -23,7 +23,7 @@
 #include <mqueue.h>
 #include <string.h>
 #include <stdbool.h>
-#include <queue.h>
+#include <tinyara/queue.h>
 #include <sys/types.h>
 #include <messaging/messaging.h>
 #include "messaging_internal.h"

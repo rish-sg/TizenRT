@@ -19,7 +19,7 @@
 #include <mqueue.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <queue.h>
+#include <tinyara/queue.h>
 #include <messaging/messaging.h>
 
 
