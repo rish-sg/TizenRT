@@ -60,7 +60,7 @@
 #include <sys/types.h>
 
 int messaging_save_receiver(char *port_name, pid_t recv_pid, int recv_prio);
-int messaging_read_list(char *port_name, int *recv_arr, int *total_cnt);
+int messaging_read_list(char *port_name, int *recv_arr, int *total_cnt, int *read_done);
 int messaging_remove_list(char *port_name);
 void messaging_initialize(void);
 #endif							/* __KERNEL_MESSAGING_MESSAGE_CTRL_H */

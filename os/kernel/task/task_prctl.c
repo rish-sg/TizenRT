@@ -306,19 +306,17 @@ int prctl(int option, ...)
 		int *recv_arr = va_arg(ap, int *);
 		int *recv_cnt = va_arg(ap, int *);
 		int total_cnt;
-		static int curr_cnt = 0;
+		int read_done = 0;
 		int ret;
-		ret = messaging_read_list(port_name, recv_arr, &total_cnt);
+		ret = messaging_read_list(port_name, recv_arr, &total_cnt, &read_done);
 		if (ret == ERROR) {
 			va_end(ap);
 			return ret;
 		}
-		curr_cnt += ret;
-		*recv_cnt = curr_cnt;
+		*recv_cnt = ret;
 		va_end(ap);
-		if (curr_cnt == total_cnt) {
+		if (read_done) {
 			/* Read whole receivers information. */
-			curr_cnt = 0;
 			return MSG_READ_ALL;
 		} else {
 			return MSG_READ_YET;

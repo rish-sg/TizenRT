@@ -107,7 +107,12 @@ int messaging_cleanup(const char *port_name)
 	if (cleanup_pid != INVALID_PID) {
 		ret = messaging_unlink_internalport(port_name, cleanup_pid);
 	} else {
-		ret = ERROR;
+		/* There is no asynchronous receive information for this port
+		 * (e.g. a blocking receiver).  The kernel side receiver node is
+		 * already removed by FREE_MSG_RECEIVER above, so the cleanup is
+		 * done.
+		 */
+		ret = OK;
 	}
 
 	return ret;

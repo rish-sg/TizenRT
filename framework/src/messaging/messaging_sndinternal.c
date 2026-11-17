@@ -33,6 +33,8 @@
 #include "messaging_internal.h"
 
 #define MSG_RECV_NOT_INIT (-1)
+#define MSG_READ_RETRY_COUNT 100
+#define MSG_READ_RETRY_DELAY_USEC (10 * 1000)
 /****************************************************************************
  * private functions
  ****************************************************************************/
@@ -212,13 +214,24 @@ int messaging_send_internal(const char *port_name, msg_send_type_t msg_type, msg
 	int recv_arr[CONFIG_MESSAGING_RECV_LIST_SIZE];
 	char *private_portname;
 	int recv_cnt;
+	int retry_cnt;
 
 	/* Check that how many receivers are waiting. */
+	retry_cnt = 0;
 	while (read_status != MSG_READ_ALL) {
 		(void)messaging_init_recv_arr(recv_arr);
 		read_status = READ_MSG_RECEIVER(port_name, recv_arr, recv_cnt);
 		if (read_status == ERROR) {
-			return ERROR;
+			/* The receiver may not have registered the port yet,
+			 * especially on SMP where the sender can run before the
+			 * receiver task registered itself.  Retry for a while
+			 * before giving up.
+			 */
+			if (++retry_cnt > MSG_READ_RETRY_COUNT) {
+				return ERROR;
+			}
+			usleep(MSG_READ_RETRY_DELAY_USEC);
+			continue;
 		}
 
 		if (msg_type != MSG_SEND_MULTI && recv_cnt > 1) {
