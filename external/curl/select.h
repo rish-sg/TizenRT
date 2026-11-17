@@ -103,7 +103,13 @@ int tpf_select_libcurl(int maxfds, fd_set* reads, fd_set* writes,
 #define VALID_SOCK(x) 1
 #define VERIFY_SOCK(x) Curl_nop_stmt
 #else
+/* NuttX 12 removed the global CONFIG_NFILE_DESCRIPTORS; the system
+ * sys/select.h defines FD_SETSIZE (OPEN_MAX) for the per-task-group
+ * descriptor model. Only fall back for configurations that provide
+ * the legacy global descriptor counts. */
+#ifndef FD_SETSIZE
 #define FD_SETSIZE     (CONFIG_NFILE_DESCRIPTORS + CONFIG_NBSDSOCKET_DESCRIPTORS)
+#endif
 #define VALID_SOCK(s) (((s) >= 0) && ((s) < FD_SETSIZE))
 #define VERIFY_SOCK(x) do { \
   if(!VALID_SOCK(x)) { \
