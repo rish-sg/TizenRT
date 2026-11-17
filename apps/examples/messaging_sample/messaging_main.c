@@ -57,6 +57,7 @@
 #include <tinyara/config.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <ctype.h>
 #include <unistd.h>
 #include "messaging_sample_internal.h"

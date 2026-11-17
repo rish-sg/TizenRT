@@ -1631,6 +1631,19 @@ config SIG_PREFERENCE
 		numbering, so it cannot be reused, and the selected number must
 		not collide with any other signal in use.
 
+config SIG_MESSAGING
+	int "SIG_MESSAGING"
+	default 32
+	range 1 63
+	---help---
+		SIGMSG_MESSAGING is a non-standard signal used by the messaging
+		framework to notify registered receivers of incoming messages.
+		This setting specifies the signal number that will be used for
+		SIGMSG_MESSAGING.
+		Default: 32.  The pre-sync default 25 is SIGXFSZ in the NuttX
+		numbering, so it cannot be reused, and the selected number must
+		not collide with any other signal in use.
+
 config SIG_PREALLOC_ACTIONS
 	int "Number of pre-allocated sigactions"
 	default 4

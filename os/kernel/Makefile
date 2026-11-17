@@ -67,6 +67,7 @@ include init/Make.defs
 include instrument/Make.defs
 include irq/Make.defs
 include log_dump/Make.defs
+include messaging/Make.defs
 include misc/Make.defs
 include mqueue/Make.defs
 include module/Make.defs

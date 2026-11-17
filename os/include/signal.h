@@ -210,6 +210,18 @@
  */
 #define SIG_PREFERENCE  CONFIG_SIG_PREFERENCE
 
+/* SIGMSG_MESSAGING is a TizenRT extension: the messaging framework
+ * notifies registered receivers of incoming messages with this signal,
+ * through mq_notify() (SIGEV_SIGNAL) and sigaction().  The pre-sync
+ * TizenRT signal.h assigned 25 through CONFIG_SIG_MESSAGING, but 25 is
+ * SIGXFSZ in the NuttX numbering, so the Kconfig default is 32, the
+ * first number of the extended 32-63 range that the NuttX signals do
+ * not use.  Like before the sync, the number is product-configurable
+ * through the SIG_MESSAGING Kconfig symbol (CONFIG_SIG_MESSAGING),
+ * which is the single source of the value here.
+ */
+#define SIGMSG_MESSAGING  CONFIG_SIG_MESSAGING
+
 /* sigprocmask() "how" definitions.
  * Only one of the following can be specified:
  */

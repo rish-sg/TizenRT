@@ -155,6 +155,27 @@
 #define PR_REBOOT_REASON_WRITE  19
 #define PR_REBOOT_REASON_CLEAR  20
 
+/* TizenRT messaging framework prctl() commands.
+ *
+ *  PR_MSG_SAVE
+ *    Register the calling thread as a receiver of a messaging port,
+ *    passing (char *) arg2 as the port name, (int) arg3 as the receiver
+ *    pid and (int) arg4 as the receiver priority.
+ *
+ *  PR_MSG_READ
+ *    Read the receivers' information of a messaging port, passing
+ *    (char *) arg2 as the port name, (int *) arg3 as the array where the
+ *    receivers' information is copied and (int *) arg4 as the location
+ *    where the number of copied entries is returned.
+ *
+ *  PR_MSG_REMOVE
+ *    Remove a messaging port, passing (char *) arg2 as the port name.
+ */
+
+#define PR_MSG_SAVE     14
+#define PR_MSG_READ     15
+#define PR_MSG_REMOVE   16
+
 /****************************************************************************
  * Public Type Definitions
  ****************************************************************************/
