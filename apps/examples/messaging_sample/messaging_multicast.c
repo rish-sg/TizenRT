@@ -65,7 +65,7 @@
 
 #define MSG_PRIO 10
 #define TASK_PRIO 100
-#define STACKSIZE 2048
+#define STACKSIZE 4096
 #define BUFFER_SIZE 10
 
 extern int fail_cnt;
