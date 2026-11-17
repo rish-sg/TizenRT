@@ -251,12 +251,14 @@ int messaging_save_receiver(char *port_name, pid_t recv_pid, int recv_prio)
  * Assumptions:
  *
  ****************************************************************************/
-int messaging_read_list(char *port_name, int *recv_arr, int *total_cnt)
+int messaging_read_list(char *port_name, int *recv_arr, int *total_cnt, int *read_done)
 {
 	int recv_idx;
+	int recv_cnt;
 	msg_port_node_t *port_node;
 	msg_recv_node_t *recv_node;
-	int recv_cnt;
+
+	recv_cnt = 0;
 
 	port_node = (msg_port_node_t *)sq_peek(&g_port_node_list);
 	while (port_node != NULL) {
@@ -268,31 +270,49 @@ int messaging_read_list(char *port_name, int *recv_arr, int *total_cnt)
 				if (recv_node == NULL) {
 					curr_recv_cnt = 0;
 					msgdbg("[Messaging] fail to read receivers list.\n");
+					*read_done = 1;
 					return ERROR;
 				}
 
 				/* Ignore already read information. */
-				for (recv_idx = 0; recv_idx < curr_recv_cnt; recv_idx++) {
+				for (recv_idx = 0; recv_idx < curr_recv_cnt && recv_node != NULL; recv_idx++) {
 					recv_node = (msg_recv_node_t *)sq_next(recv_node);
 				}
 
+				/* The already-read state is stale (receivers removed
+				 * while reading).  Restart from the head of the list.
+				 */
+
+				if (recv_node == NULL) {
+					curr_recv_cnt = 0;
+					recv_node = (msg_recv_node_t *)sq_peek(&port_node->recv_node_list);
+				}
+
 				/* Read receivers' information. */
-				for (recv_idx = 0; recv_idx < CONFIG_MESSAGING_RECV_LIST_SIZE; recv_idx++) {
+				for (recv_idx = 0; recv_idx < CONFIG_MESSAGING_RECV_LIST_SIZE && recv_node != NULL; recv_idx++) {
 					recv_arr[recv_idx] = recv_node->pid;
+					recv_cnt++;
 					curr_recv_cnt++;
 					recv_node = (msg_recv_node_t *)sq_next(recv_node);
-					if (recv_node == NULL) {
-						recv_cnt = curr_recv_cnt;
-						curr_recv_cnt = 0;
-						return recv_cnt;
-					}
 				}
+
+				if (recv_node == NULL) {
+					/* All receivers are read. */
+					curr_recv_cnt = 0;
+					*read_done = 1;
+				} else {
+					*read_done = 0;
+				}
+			} else {
+				*total_cnt = 0;
+				*read_done = 1;
 			}
-			return curr_recv_cnt;
+			return recv_cnt;
 		}
 		port_node = (msg_port_node_t *)sq_next(port_node);
 	}
 
+	*read_done = 1;
 	return ERROR;
 }
 

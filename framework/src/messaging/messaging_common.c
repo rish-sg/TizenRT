@@ -248,7 +248,6 @@ void messaging_run_callback(int signo, siginfo_t *data)
 		ret = mq_getattr(recv_info->mqdes, &attr);
 		if (ret < 0) {
 			msgdbg("[Messaging] recv fail : mq_getattr fail, mqdes is not correct.\n");
-			MSG_FREE(data);
 			goto errout_with_mq_close;
 		} else if (attr.mq_curmsgs == 0) {
 			/* All requests are handled. Register notification again. */
