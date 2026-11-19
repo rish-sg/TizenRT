@@ -197,6 +197,13 @@ void multicast_messaging_sample(void)
 		return;
 	}
 
+	/* Wait for the receivers to register their ports before starting
+	 * the sender.  On SMP the sender task can run on another CPU
+	 * before the receiver tasks finished the registration, and then
+	 * the multicast message is delivered to only a part of them.
+	 */
+	sleep(1);
+
 	sender_pid = task_create("multi_sender", TASK_PRIO, STACKSIZE, multi_sender, NULL);
 	if (sender_pid < 0) {
 		fail_cnt++;
