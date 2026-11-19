@@ -137,7 +137,6 @@ int messaging_send_packet(const char *port_name, msg_send_type_t msg_type, msg_s
 	if (send_packet == NULL) {
 		msgdbg("[Messaging] send fail : out of memory for including header.\n");
 		mq_close(mqdes);
-		mq_unlink(port_name);
 		return ERROR;
 	}
 
@@ -174,7 +173,9 @@ int messaging_send_packet(const char *port_name, msg_send_type_t msg_type, msg_s
 		msgdbg("[Messaging] send fail : errno %d.\n", errno);
 		MSG_FREE(send_packet);
 		mq_close(mqdes);
-		mq_unlink(port_name);
+		/* Do not unlink the receiver's queue here : only the port
+		 * owner (receiver) may remove its own message queue.
+		 */
 		return ERROR;
 	}
 
@@ -216,16 +217,19 @@ int messaging_send_internal(const char *port_name, msg_send_type_t msg_type, msg
 	int recv_cnt;
 	int retry_cnt;
 
-	/* Check that how many receivers are waiting. */
+	/* Check how many receivers are waiting, and send the message to them.
+	 * The whole read-and-send cycle is retried for a bounded time,
+	 * because the sender can run before the receiver registered its
+	 * port (SMP startup race), or before the receiver's private
+	 * message queue became usable just after the registration.
+	 */
 	retry_cnt = 0;
 	while (read_status != MSG_READ_ALL) {
 		(void)messaging_init_recv_arr(recv_arr);
 		read_status = READ_MSG_RECEIVER(port_name, recv_arr, recv_cnt);
 		if (read_status == ERROR) {
-			/* The receiver may not have registered the port yet,
-			 * especially on SMP where the sender can run before the
-			 * receiver task registered itself.  Retry for a while
-			 * before giving up.
+			/* The receiver may not have registered the port yet.
+			 * Retry for a while before giving up.
 			 */
 			if (++retry_cnt > MSG_READ_RETRY_COUNT) {
 				return ERROR;
@@ -239,7 +243,13 @@ int messaging_send_internal(const char *port_name, msg_send_type_t msg_type, msg
 			return ERROR;
 		}
 
+		if (recv_cnt == 0) {
+			/* No receiver is waiting on this port. */
+			return ERROR;
+		}
+
 		/* Send message to each receivers. */
+		ret = OK;
 		for (recv_idx = 0; recv_idx < recv_cnt; recv_idx++) {
 			if (recv_arr[recv_idx] == MSG_RECV_NOT_INIT) {
 				continue;
@@ -262,6 +272,21 @@ int messaging_send_internal(const char *port_name, msg_send_type_t msg_type, msg
 				ret = messaging_send_packet(private_portname, msg_type, send_data, NULL);
 			}
 			MSG_FREE(private_portname);
+			if (ret != OK) {
+				break;
+			}
+		}
+
+		if (ret != OK) {
+			/* The port was read but the send failed : the receiver's
+			 * private queue was not usable yet.  Retry the whole
+			 * read-and-send cycle for a bounded time.
+			 */
+			read_status = MSG_READ_YET;
+			if (++retry_cnt > MSG_READ_RETRY_COUNT) {
+				return ret;
+			}
+			usleep(MSG_READ_RETRY_DELAY_USEC);
 		}
 	}
 	if (ret == OK) {
