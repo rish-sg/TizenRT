@@ -65,6 +65,9 @@
 #ifdef CONFIG_MESSAGING_IPC
 #include "messaging/message_ctrl.h"
 #endif
+#ifdef CONFIG_BINARY_MANAGER
+#include "binary_manager/binary_manager_internal.h"
+#endif
 #include <tinyara/binfmt/binfmt.h>
 #ifdef CONFIG_NET
 #include <tinyara/net/net.h>
@@ -426,6 +429,33 @@ static inline void nx_start_application(void)
 	posix_spawnattr_destroy(&attr);
 	DEBUGASSERT(ret > 0);
 #endif /* CONFIG_INIT_NONE */
+
+#ifdef CONFIG_BINARY_MANAGER
+	/* TizenRT: start the binary manager kernel thread.  The protected
+	 * build handling (TD-KERNEL-06) is not ported yet; this starts it
+	 * in the flat build like the base os_do_appstart() did.
+	 */
+
+	pid_t bmpid = kthread_create(BINARY_MANAGER_NAME, BINARY_MANAGER_PRIORITY,
+	                             BINARY_MANAGER_STACKSIZE, binary_manager,
+	                             NULL);
+	if (bmpid < 0) {
+		serr("Failed to start binary manager: %d\n", (int)bmpid);
+	}
+
+	/* Set the affinity of binary manager to run on only CPU0, because
+	 * while application recovery, binary_manager's child thread should
+	 * execute sequentially (not parallely)
+	 */
+
+#ifdef CONFIG_SMP
+	cpu_set_t cpu_set;
+
+	CPU_ZERO(&cpu_set);
+	CPU_SET(0, &cpu_set);
+	sched_setaffinity(bmpid, sizeof(cpu_set_t), &cpu_set);
+#endif
+#endif
 }
 
 /****************************************************************************
