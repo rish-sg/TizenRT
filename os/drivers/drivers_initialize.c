@@ -86,6 +86,16 @@
 #include <tinyara/serial/pty.h>
 #include <tinyara/serial/uart_hostfs.h>
 #include <tinyara/serial/uart_ram.h>
+#if defined(CONFIG_MMINFO)
+#  include <tinyara/mminfo.h>
+#endif
+#if defined(CONFIG_DRIVERS_OS_API_TEST)
+#  include <tinyara/os_api_test_drv.h>
+#endif
+#include <tinyara/pm/pm.h>
+#if defined(CONFIG_PRODCONFIG)
+#  include <tinyara/prodconfig.h>
+#endif
 #include <tinyara/silent_reboot.h>
 #include <tinyara/syslog/syslog.h>
 #include <tinyara/syslog/syslog_console.h>
@@ -362,6 +372,20 @@ void drivers_initialize(void)
 
 #ifdef CONFIG_FAKE_CAPTURE
 	fake_capture_initialize(2);
+#endif
+
+#ifdef CONFIG_MMINFO
+	mminfo_register();        /* Non-standard /dev/mminfo */
+#endif
+
+#ifdef CONFIG_DRIVERS_OS_API_TEST
+	os_api_test_drv_register(); /* Non-standard /dev/os_api_test */
+#endif
+
+	pm_driver_register();       /* Non-standard /dev/pm */
+
+#ifdef CONFIG_PRODCONFIG
+	prodconfig_register();      /* Non-standard /dev/config */
 #endif
 
 #ifdef CONFIG_SILENT_REBOOT
