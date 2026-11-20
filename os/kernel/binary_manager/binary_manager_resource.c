@@ -399,7 +399,10 @@ int binary_manager_mount_resource(void)
 				return ERROR;
 			}
 #else
-			snprintf(fs_devpath, sizeof(fs_devpath), BINMGR_DEVNAME_FMT, resource_info.part_info[inuse_idx].devnum);
+			/* Mount the shifted block device created by make_resource_mtd_partition(),
+			 * whose sector 0 is the romfs payload right past the binary header.
+			 */
+			snprintf(fs_devpath, sizeof(fs_devpath), BINMGR_DEVNAME_FMT, resource_info.part_info[inuse_idx].devnum + RESOURCE_DEVNUM_OFFSET);
 #endif
 #ifdef CONFIG_RESOURCE_BINARY_SIGNING
 			ret = mount(fs_devpath, RESOURCE_MOUNTPT, "romfs", MS_RDONLY, RESOURCE_HEADER_SIZE + USER_SIGN_PREPEND_SIZE);
