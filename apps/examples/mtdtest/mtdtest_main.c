@@ -39,7 +39,7 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define MTDTEST_DEFAULT_DEV    "/dev/mtdblock7"
+#define MTDTEST_DEFAULT_DEV    "/dev/mtdblock10"
 #define MTDTEST_LG_BLKSIZE     512
 #define MTDTEST_DEFAULT_EBLKS  4
 #define MTDTEST_DEFAULT_PASSES 1
@@ -54,15 +54,24 @@
  * Name: mtdtest_protected_reason
  *
  * Description:
- *   The rtl8730e/tash partition table is
+ *   Partition tables differ per board:
  *
+ *   rtl8730e/tash (internal flash, 9 partitions):
  *     4: kernel   slot A (the image that is currently executed in place)
  *     5: kernel   slot B (the OTA backup image)
- *     7: reserved (FTL, unmounted -- the scratch target of this test)
+ *     7: reserved (FTL, unmounted -- the scratch target on tash)
  *     8: bootparam (8K, owned by the binary manager)
  *
- *   only /dev/mtdblock7 is a safe target.  Refusing the others avoids
- *   bricking the board by a typo.
+ *   rtl8730e/flat_dev_ddr (internal 0..6 + external 7..10):
+ *     7,8: resource slots A/B (backing store of the read-only /res)
+ *     9:   userfs (smartfs slice -- exposes only /dev/smart1p9, no raw
+ *          mtdblock; the smart layer itself can be tested on that node)
+ *     10:  reserved (FTL, unmounted -- the scratch target on this board,
+ *          on the same jedec SPI-NOR transport as the userfs slice)
+ *
+ *   Refuse the boot-critical minors so a typo cannot brick the board or
+ *   destroy the mounted resource; pick the scratch device with -d
+ *   (default /dev/mtdblock10, the flat_dev_ddr reserved slice).
  *
  ****************************************************************************/
 
@@ -73,8 +82,10 @@ static FAR const char *mtdtest_protected_reason(int minor)
 		return "kernel slot A (executed in place, writing would brick the board)";
 	case 5:
 		return "kernel slot B (OTA backup image)";
+	case 7:
+		return "resource slot A on flat_dev_ddr (backing store of the mounted /res)";
 	case 8:
-		return "boot parameters (owned by the binary manager)";
+		return "boot parameters (tash) / resource slot B (flat_dev_ddr, backing store of /res)";
 	default:
 		return NULL;
 	}
