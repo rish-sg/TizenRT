@@ -777,7 +777,7 @@ static int amebasmart_spi_lock(FAR struct spi_dev_s *dev, bool lock)
  *
  *
  ************************************************************************************/
-void amebasmart_spi_select(FAR struct spi_dev_s *dev, enum spi_dev_e devid, bool selected)
+void amebasmart_spi_select(FAR struct spi_dev_s *dev, uint32_t devid, bool selected)
 {
 	FAR struct amebasmart_spidev_s *priv = (FAR struct amebasmart_spidev_s *)dev;
 #ifdef CONFIG_SPI_CS
@@ -828,7 +828,7 @@ void amebasmart_spi_select(FAR struct spi_dev_s *dev, enum spi_dev_e devid, bool
  *   Returns the SPI status
  *
  ************************************************************************************/
-uint8_t amebasmart_spi0status(FAR struct spi_dev_s *dev, enum spi_dev_e devid)
+uint8_t amebasmart_spi0status(FAR struct spi_dev_s *dev, uint32_t devid)
 {
 	return 0;
 }
@@ -867,7 +867,7 @@ int amebasmart_spi0cmddata(FAR struct spi_dev_s *dev, uint32_t devid, bool cmd)
  *   Returns the SPI status
  *
  ************************************************************************************/
-uint8_t amebasmart_spi1status(FAR struct spi_dev_s *dev, enum spi_dev_e devid)
+uint8_t amebasmart_spi1status(FAR struct spi_dev_s *dev, uint32_t devid)
 {
 	return 0;
 }

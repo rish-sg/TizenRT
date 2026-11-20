@@ -50,6 +50,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <tinyara/fs/ioctl.h>
+
+/* TizenRT SPI UIO ioctls (restored for the 12.13.0 base) */
+
+#define SPIIOC_SET_CONFIG          _SPIIOC(0x0001)	/* Set SPI configurations */
+#define SPIIOC_EXCHANGE            _SPIIOC(0x0002)	/* Exchange Data */
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -565,6 +571,14 @@ struct spi_io_config {
 	enum spi_mode_e mode;    /* SPI mode */
 };
 
+/* Raw SPI I/O message (TizenRT extension, restored for the 12.13.0 base) */
+
+struct spi_io_msg {
+	unsigned char *rxbuf;    /* Receive buffer */
+	unsigned char *txbuf;    /* Transmit buffer */
+	unsigned int length;   /* Transfer length */
+};
+
 /* The SPI vtable */
 
 struct spi_dev_s;
@@ -614,6 +628,8 @@ struct spi_ops_s {
 
 struct spi_dev_s {
 	FAR const struct spi_ops_s *ops;
+	FAR struct spi_io_config config;   /* TizenRT extension (SPI UIO) */
+	FAR void *priv;                    /* TizenRT extension */
 };
 
 #undef EXTERN
@@ -624,6 +640,12 @@ extern "C"
 #else
 #define EXTERN extern
 #endif
+
+/* TizenRT SPI extensions */
+
+FAR struct spi_dev_s *up_spiinitialize(int port);
+
+FAR int spi_uioregister(FAR int bus, FAR struct spi_dev_s *dev);
 
 #undef EXTERN
 #if defined(__cplusplus)

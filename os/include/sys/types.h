@@ -311,6 +311,15 @@ typedef unsigned long  ulong;
 typedef signed char    s_char;
 typedef FAR char      *caddr_t;
 
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned int u32;
+typedef unsigned long long u64;
+typedef signed char s8;
+typedef short s16;
+typedef int s32;
+typedef long long s64;
+
 /* These were defined by ISO C without the first `_'.  */
 
 typedef uint8_t  u_int8_t;

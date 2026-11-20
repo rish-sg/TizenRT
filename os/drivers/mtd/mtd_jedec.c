@@ -67,7 +67,7 @@
 #include <tinyara/kmalloc.h>
 #include <tinyara/fs/ioctl.h>
 #include <tinyara/spi/spi.h>
-#include <tinyara/fs/mtd.h>
+#include <tinyara/mtd/mtd.h>
 
 /************************************************************************************
  * Pre-processor Definitions
@@ -285,7 +285,7 @@ static inline int jedec_readid(struct jedec_dev_s *priv)
 	jedec_lock(priv->dev);
 	jedec_waitwritecomplete(priv);
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, true);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), true);
 
 	/* Send the "Read ID (RDID)" command and read the first three ID bytes */
 
@@ -296,7 +296,7 @@ static inline int jedec_readid(struct jedec_dev_s *priv)
 
 	/* Deselect the FLASH and unlock the bus */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, false);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), false);
 	jedec_unlock(priv->dev);
 
 	fdbg("manufacturer: %02x memory: %02x capacity: %02x\n", manufacturer, memory, capacity);
@@ -333,7 +333,7 @@ static void jedec_unprotect(FAR struct jedec_dev_s *priv)
 
 	/* Select this FLASH part */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, true);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), true);
 
 	/* Send "Write enable status (EWSR)" */
 
@@ -346,7 +346,7 @@ static void jedec_unprotect(FAR struct jedec_dev_s *priv)
 
 	/* Deselect the FLASH and unlock the bus */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, false);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), false);
 	jedec_unlock(priv->dev);
 }
 
@@ -368,7 +368,7 @@ static void jedec_set_4byte_addr_mode(FAR struct jedec_dev_s *priv)
 
 	/* Select this FLASH part */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, true);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), true);
 
 	/* Send "set 4byte address (JEDEC_ADDR4BYTE)" command */
 
@@ -376,7 +376,7 @@ static void jedec_set_4byte_addr_mode(FAR struct jedec_dev_s *priv)
 
 	/* Deselect the FLASH */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, false);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), false);
 
 	jedec_unlock(priv->dev);
 }
@@ -395,7 +395,7 @@ static void jedec_waitwritecomplete(struct jedec_dev_s *priv)
 	do {
 		/* Select this FLASH part */
 
-		SPI_SELECT(priv->dev, SPIDEV_FLASH, true);
+		SPI_SELECT(priv->dev, SPIDEV_FLASH(0), true);
 
 		/* Send "Read Status Register (RDSR)" command */
 
@@ -407,7 +407,7 @@ static void jedec_waitwritecomplete(struct jedec_dev_s *priv)
 
 		/* Deselect the FLASH */
 
-		SPI_SELECT(priv->dev, SPIDEV_FLASH, false);
+		SPI_SELECT(priv->dev, SPIDEV_FLASH(0), false);
 
 		/* Given that writing could take up to few tens of milliseconds, and erasing
 		 * could take more.  The following short delay in the "busy" case will allow
@@ -432,7 +432,7 @@ static void jedec_writeenable(struct jedec_dev_s *priv)
 {
 	/* Select this FLASH part */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, true);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), true);
 
 	/* Send "Write Enable (WREN)" command */
 
@@ -440,7 +440,7 @@ static void jedec_writeenable(struct jedec_dev_s *priv)
 
 	/* Deselect the FLASH */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, false);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), false);
 	fvdbg("Enabled\n");
 }
 
@@ -452,7 +452,7 @@ static inline void jedec_wrdi(struct jedec_dev_s *priv)
 {
 	/* Select this FLASH part */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, true);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), true);
 
 	/* Send "Write Disable (WRDI)" command */
 
@@ -460,7 +460,7 @@ static inline void jedec_wrdi(struct jedec_dev_s *priv)
 
 	/* Deselect the FLASH */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, false);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), false);
 }
 
 /************************************************************************************
@@ -493,7 +493,7 @@ static void jedec_sectorerase(struct jedec_dev_s *priv, off_t sector, uint8_t ty
 
 	/* Select this FLASH part */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, true);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), true);
 
 	/* Send the "Sector Erase (SE)" or Sub-Sector Erase (SSE) instruction
 	 * that was passed in as the erase type.
@@ -514,7 +514,7 @@ static void jedec_sectorerase(struct jedec_dev_s *priv, off_t sector, uint8_t ty
 
 	/* Deselect the FLASH */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, false);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), false);
 	fvdbg("Erased\n");
 }
 
@@ -540,7 +540,7 @@ static inline int jedec_bulkerase(struct jedec_dev_s *priv)
 
 	/* Select this FLASH part */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, true);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), true);
 
 	/* Send the "Bulk Erase (BE)" instruction */
 
@@ -548,7 +548,7 @@ static inline int jedec_bulkerase(struct jedec_dev_s *priv)
 
 	/* Deselect the FLASH */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, false);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), false);
 	fvdbg("Return: OK\n");
 	return OK;
 }
@@ -577,7 +577,7 @@ static inline void jedec_pagewrite(struct jedec_dev_s *priv, FAR const uint8_t *
 
 	/* Select this FLASH part */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, true);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), true);
 
 	/* Send "Page Program (PP)" command */
 	if (priv->addr_len == 4) {
@@ -599,7 +599,7 @@ static inline void jedec_pagewrite(struct jedec_dev_s *priv, FAR const uint8_t *
 
 	/* Deselect the FLASH: Chip Select high */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, false);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), false);
 
 	jedec_wrdi(priv);
 	fvdbg("Written\n");
@@ -628,7 +628,7 @@ static inline void jedec_bytewrite(struct jedec_dev_s *priv, FAR const uint8_t *
 
 	/* Select this FLASH part */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, true);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), true);
 
 	/* Send "Page Program (PP)" command */
 
@@ -651,7 +651,7 @@ static inline void jedec_bytewrite(struct jedec_dev_s *priv, FAR const uint8_t *
 
 	/* Deselect the FLASH: Chip Select high */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, false);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), false);
 	fvdbg("Written\n");
 }
 #endif
@@ -688,7 +688,7 @@ static int jedec_is_erased(FAR struct jedec_dev_s *priv, off_t block)
 	
 	/* Select this FLASH part */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, true);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), true);
 
 	/* Send "Read from Memory" instruction */
 #ifdef CONFIG_JEDEC_SLOWREAD
@@ -723,7 +723,7 @@ static int jedec_is_erased(FAR struct jedec_dev_s *priv, off_t block)
 
 	/* Deselect the FLASH and unlock the SPI bus */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, false);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), false);
 
 	/* Because of sudden power off, some of bits still can be '0', verify here */
 	for (count = 0; count < (erasesize / 4); count++) {
@@ -883,7 +883,7 @@ static ssize_t jedec_read(FAR struct mtd_dev_s *dev, off_t offset, size_t nbytes
 
 	/* Select this FLASH part */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, true);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), true);
 
 	/* Send "Read from Memory" instruction */
 #ifdef CONFIG_JEDEC_SLOWREAD
@@ -918,7 +918,7 @@ static ssize_t jedec_read(FAR struct mtd_dev_s *dev, off_t offset, size_t nbytes
 
 	/* Deselect the FLASH and unlock the SPI bus */
 
-	SPI_SELECT(priv->dev, SPIDEV_FLASH, false);
+	SPI_SELECT(priv->dev, SPIDEV_FLASH(0), false);
 	jedec_unlock(priv->dev);
 
 	fvdbg("return nbytes: %d\n", (int)nbytes);
@@ -1043,7 +1043,6 @@ static int jedec_ioctl(FAR struct mtd_dev_s *dev, int cmd, unsigned long arg)
 	}
 	break;
 
-	case MTDIOC_XIPBASE:
 	default:
 		ret = -ENOTTY;			/* Bad command */
 		break;
@@ -1101,7 +1100,7 @@ FAR struct mtd_dev_s *jedec_initialize(FAR struct spi_dev_s *dev)
 
 		/* Deselect the FLASH */
 
-		SPI_SELECT(dev, SPIDEV_FLASH, false);
+		SPI_SELECT(dev, SPIDEV_FLASH(0), false);
 
 		/* Identify the FLASH chip and get its capacity */
 
