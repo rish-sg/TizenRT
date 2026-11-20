@@ -190,9 +190,9 @@ int mtdtest_main(int argc, char **argv)
 			force = 1;
 		} else if (strcmp(argv[i], "-s") == 0) {
 			spinner = 1;
-		} else if (strcmp(args[i], "-l") == 0 && i + 1 < argc) {
-			loops = atoi(args[++i]);
-		} else if (strcmp(args[i], "-r") == 0) {
+		} else if (strcmp(argv[i], "-l") == 0 && i + 1 < argc) {
+			loops = atoi(argv[++i]);
+		} else if (strcmp(argv[i], "-r") == 0) {
 			randomize = 1;
 		} else {
 			printf("Usage: mtdtest [-d dev] [-b erase-blocks] [-p passes]"
