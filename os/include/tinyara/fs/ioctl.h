@@ -387,6 +387,18 @@
                                            * OUT: None (ioctl return value provides
                                            *      success/failure indication). */
 
+/* Restored from the TizenRT enhanced SMART driver.  The legacy numbers
+ * (_BIOC(0x000b)/_BIOC(0x000c)) are occupied here by BIOC_DEBUGCMD and
+ * BIOC_GEOMETRY, so these commands are re-slotted to the next free codes;
+ * both the SMART driver and its callers compile against this header, so
+ * only the names and uniqueness matter.
+ */
+
+#define BIOC_BULKERASE  _BIOC(0x0012)     /* Request Bulk erase to block driver
+                                           */
+#define BIOC_CORRUPTION _BIOC(0x0013)     /* Request corrupt blocks for testing
+                                           */
+
 /* NuttX MTD driver ioctl definitions ***************************************/
 
 #define _MTDIOCVALID(c)   (_IOC_TYPE(c)==_MTDIOCBASE)

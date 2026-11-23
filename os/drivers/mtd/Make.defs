@@ -205,6 +205,7 @@ endif
 ifeq ($(CONFIG_MTD_SMART),y)
 ifeq ($(CONFIG_FS_SMARTFS),y)
 CSRCS += smart.c
+CSRCS += smart_crc16.c
 endif
 endif
 
