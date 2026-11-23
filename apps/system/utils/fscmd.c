@@ -1461,14 +1461,98 @@ enum fs_minor_num_e {
 };
 typedef enum fs_minor_num_e fs_minor_t;
 
+/* Locate the userfs block driver node of the given flash minor by probing
+ * the names the partition code registers (see smart_initialize() and the
+ * littlefs registration in os/board/common/partitions.c): the smartfs slice
+ * appears as /dev/smart{minor}p{partno}, the littlefs slice as
+ * /dev/little{minor}p{partno}.  Returns the first openable node.
+ */
+static int find_userfs_device(fs_minor_t minor, FAR char *name, size_t namelen, FAR const char **fstype)
+{
+	int fd;
+	int i;
+
+	for (i = 0; i < 32; i++) {
+#ifdef CONFIG_FS_SMARTFS
+		snprintf(name, namelen, "/dev/smart%dp%d", (int)minor, i);
+		fd = open(name, O_RDWR);
+		if (fd >= 0) {
+			close(fd);
+			*fstype = "smartfs";
+			return OK;
+		}
+#endif
+		snprintf(name, namelen, "/dev/little%dp%d", (int)minor, i);
+		fd = open(name, O_RDWR);
+		if (fd >= 0) {
+			close(fd);
+			*fstype = "littlefs";
+			return OK;
+		}
+	}
+
+	return ERROR;
+}
+
+/* The legacy 'format' command does not erase anything itself: it stamps a
+ * deferred-format request through the TizenRT enhanced SMART driver's
+ * BIOC_BULKERASE ioctl.  The driver writes the SMART_FORMAT_ENABLE marker
+ * into the format-sector payload (logical sector 0), where it survives
+ * sector relocations, and the real low-level erase runs on the next boot:
+ * smart_scan() sees the marker, reports the volume unformatted, and the
+ * automounter's mksmartfs() performs the erase before mounting.  This
+ * restores strict pre-sync behaviour, including the "Please reboot"
+ * requirement -- the userfs stays fully usable until the reboot.
+ */
+static int mark_filesystem(fs_minor_t minor, unsigned long request,
+                           FAR const char *cmd)
+{
+	char name[32];
+	FAR const char *fstype = NULL;
+	int fd;
+	int ret;
+
+	if (find_userfs_device(minor, name, sizeof(name), &fstype) != OK) {
+		printf("No user filesystem device found for flash minor %d\n", (int)minor);
+		return ERROR;
+	}
+
+#ifdef CONFIG_FS_SMARTFS
+	if (strcmp(fstype, "smartfs") != 0) {
+#endif
+		printf("Deferring %s on littlefs is not supported yet\n", cmd);
+		return ERROR;
+#ifdef CONFIG_FS_SMARTFS
+	}
+
+	fd = open(name, O_RDWR);
+	if (fd < 0) {
+		printf("Open %s failed errno : %d\n", name, errno);
+		return ERROR;
+	}
+
+	ret = ioctl(fd, request, 1);
+	close(fd);
+	if (ret != OK) {
+		printf("Low level %s failed ret : %d errno : %d\n", cmd, ret, errno);
+		return ERROR;
+	}
+
+	printf("Low level %s finished, Please reboot device\n", cmd);
+	return OK;
+#endif
+}
+
 static int modify_filesystem(fs_minor_t minor, char *cmd) {
-	/* The old TizenRT smartfs corruption ioctls (BIOC_BULKERASE,
-	 * BIOC_CORRUPTION, FIOC_RESERVE_FORMAT, FIOC_RESERVE_CORRUPT) and
-	 * CONFIG_MOUNT_POINT do not exist after the NuttX 12.13.0 sync, so the
-	 * 'format' and 'corrupt' commands cannot be served for now.
-	 */
+	if (strcmp(cmd, "format") == 0) {
+		return mark_filesystem(minor, BIOC_BULKERASE, cmd);
+	}
+
+	if (strcmp(cmd, "corrupt") == 0) {
+		return mark_filesystem(minor, BIOC_CORRUPTION, cmd);
+	}
+
 	printf("'%s' is not supported in this build\n", cmd);
-	UNUSED(minor);
 	return ERROR;
 }
 
