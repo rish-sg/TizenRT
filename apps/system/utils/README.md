@@ -20,7 +20,7 @@ Most of the commands support *--help* option to show how to use.
 |                    | [ps](#ps)                                       | [pwd](#pwd)             |
 |                    | [reboot](#reboot)                               | [rm](#rm)               |
 |                    | [stkmon](#stkmon)                               | [rmdir](#rmdir)         |
-|                    | [uptime](#uptime)                               |                         |
+|                    | [uptime](#uptime)                               | [cksum](#cksum)         |
 
 
 ## exit
@@ -73,6 +73,34 @@ TASH>>cat /mnt/test1.txt
 TASH>>cat /mnt/test1.txt >> /mnt/test.txt
 TASH>>cat /mnt/test.txt
 abc123
+```
+### How to Enable
+Enable *CONFIG_FS_CMDS* on menuconfig.
+```
+Application Configuration -> System Libraries and Add-Ons -> [*] FS shell commands
+```
+#### Dependancy
+- Disable CONFIG_DISABLE_ENVIRON.
+```
+Kernel Features -> Disable TinyAra interfaces -> [ ] Disable environment variable support
+```
+- Set a value which is greater than zero on CONFIG_NFILE_DESCRIPTORS.
+```
+Kernel Features -> Files and I/O -> Maximum number of file descriptors per task
+```
+
+
+## cksum
+This command calculates the CRC32 checksum and the size in bytes of an existing file, so that file contents can be verified identical across reboots or remounts.
+
+```
+Usage:
+   cksum [file_path]
+```
+```bash
+TASH>>echo -n "abc" > /mnt/test.txt
+TASH>>cksum /mnt/test.txt
+352440c2  3  /mnt/test.txt
 ```
 ### How to Enable
 Enable *CONFIG_FS_CMDS* on menuconfig.

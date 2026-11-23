@@ -87,6 +87,7 @@
 #define FSCMD_ECHO_USAGE "Usage:  echo [OPTIONS] [input_text] [> or >>] > [target_file_path]\n\tOPTIONS: '-n' - do not output the trailing newline.\n\t\t '--help' - displays usage.\n"
 #define FSCMD_CAT_USAGE "Usage:  cat [OPTIONS] [source_file_path] [> or >>] [target_file_path]\n\tOPTIONS: '--help' - displays usage.\n"
 #define FSCMD_MV_USAGE "Usage:  mv [source_file_path] [target_file_path]\n"
+#define FSCMD_CKSUM_USAGE "Usage:  cksum [file_path]\n"
 
 
 /** Wrapper to prevent remove information by users **/
@@ -413,6 +414,98 @@ out_close:
 out_free:
 	fscmd_free(src_fullpath);
 	fscmd_free(dest_fullpath);
+	return ret;
+}
+
+/****************************************************************************
+ * Name: cksum_crc32
+ *
+ * Description:
+ *   Table-less CRC32 (reflected IEEE 802.3 polynomial, same value as
+ *   the POSIX cksum family) updated incrementally over each chunk of
+ *   file data.
+ ****************************************************************************/
+static uint32_t cksum_crc32(FAR const uint8_t *buf, size_t len,
+			    uint32_t crc)
+{
+	size_t i;
+	int j;
+
+	for (i = 0; i < len; i++) {
+		crc ^= buf[i];
+		for (j = 0; j < 8; j++) {
+			crc = (crc & 1) ? ((crc >> 1) ^ 0xedb88320) :
+					  (crc >> 1);
+		}
+	}
+
+	return crc;
+}
+
+/****************************************************************************
+ * Name: tash_cksum
+ *
+ * Description:
+ *   computes a CRC32 checksum and byte count of the given file so that
+ *   file contents can be verified identical across reboots or between
+ *   mounts without a host toolchain.
+ *
+ * Usage:
+ *   cksum <file_path>
+ ****************************************************************************/
+static int tash_cksum(int argc, char **args)
+{
+	char *src_fullpath;
+	uint8_t fscmd_buffer[FSCMD_BUFFER_LEN];
+	uint32_t crc = 0xffffffff;
+	off_t total = 0;
+	ssize_t read_size;
+	int fd;
+	int ret;
+
+	if (argc == 1) {
+		FSCMD_OUTPUT(MISSING_ARGS FSCMD_CKSUM_USAGE, args[0]);
+		return ERROR;
+	} else if (strcmp(args[1], "--help") == 0) {
+		FSCMD_OUTPUT(FSCMD_CKSUM_USAGE);
+		return OK;
+	} else if (argc != 2) {
+		FSCMD_OUTPUT(INVALID_ARGS FSCMD_CKSUM_USAGE, args[0]);
+		return ERROR;
+	}
+
+	src_fullpath = get_fullpath(args[1]);
+	if (!src_fullpath) {
+		FSCMD_OUTPUT(OUT_OF_MEMORY, args[1]);
+		return ERROR;
+	}
+
+	fd = open(src_fullpath, O_RDONLY);
+	if (fd < 0) {
+		FSCMD_OUTPUT(CMD_FAILED, "open", src_fullpath);
+		fscmd_free(src_fullpath);
+		return ERROR;
+	}
+
+	while ((read_size = read(fd, fscmd_buffer, FSCMD_BUFFER_LEN)) > 0) {
+		crc = cksum_crc32(fscmd_buffer, (size_t)read_size, crc);
+		total += read_size;
+	}
+
+	ret = (read_size < 0) ? ERROR : OK;
+	if (read_size < 0) {
+		FSCMD_OUTPUT(CMD_FAILED, "read", src_fullpath);
+	}
+
+	close(fd);
+
+	if (ret == OK) {
+		FSCMD_OUTPUT("%08lx  %ld  %s\n",
+			     (unsigned long)(crc ^ 0xffffffff),
+			     (long)total, args[1]);
+	}
+
+	fscmd_free(src_fullpath);
 	return ret;
 }
 #endif
@@ -1445,6 +1538,10 @@ static int tash_corrupt(int argc, char **args)
 const static tash_cmdlist_t fs_utilcmds[] = {
 #ifndef CONFIG_DISABLE_ENVIRON
 	{"cat",       tash_cat,       TASH_EXECMD_SYNC},
+#endif
+
+#ifndef CONFIG_DISABLE_ENVIRON
+	{"cksum",     tash_cksum,     TASH_EXECMD_SYNC},
 #endif
 
 #ifndef CONFIG_DISABLE_ENVIRON
